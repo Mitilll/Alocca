@@ -10,6 +10,7 @@ import { FiltroMensagens } from './common/mensagens.filter.ts'
 import { HealthModule } from './health/health.module.ts'
 import { MedicosModule } from './medicos/medicos.module.ts'
 import { CandidaturasModule } from './candidaturas/candidaturas.module.ts'
+import { CheckinModule } from './checkin/checkin.module.ts'
 import { PlantoesModule } from './plantoes/plantoes.module.ts'
 
 @Module({
@@ -26,6 +27,7 @@ import { PlantoesModule } from './plantoes/plantoes.module.ts'
     MedicosModule,
     PlantoesModule,
     CandidaturasModule,
+    CheckinModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
   ],
   providers: [
