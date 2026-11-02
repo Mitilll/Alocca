@@ -29,11 +29,12 @@ describe("Minhas candidaturas (GET /candidaturas/medico, #49)", () => {
     plantaoId: string,
     medicoId: string,
     status = "PENDENTE",
+    criadaEm: string | null = null,
   ): Promise<string> {
     const [candidatura] = (
       await database.query<{ id: string }>(
-        "INSERT INTO candidaturas (plantao_id, medico_id, status) VALUES ($1, $2, $3) RETURNING id",
-        [plantaoId, medicoId, status],
+        "INSERT INTO candidaturas (plantao_id, medico_id, status, created_at) VALUES ($1, $2, $3, COALESCE($4::timestamptz, now())) RETURNING id",
+        [plantaoId, medicoId, status, criadaEm],
       )
     ).rows;
     return candidatura.id;
@@ -145,8 +146,18 @@ describe("Minhas candidaturas (GET /candidaturas/medico, #49)", () => {
   });
 
   it("lista as candidaturas do próprio médico com plantão e instituição", async () => {
-    await inserirCandidatura(plantaoAberto, medico1Id);
-    await inserirCandidatura(plantaoUmaVaga, medico1Id, "REJEITADA");
+    await inserirCandidatura(
+      plantaoAberto,
+      medico1Id,
+      "PENDENTE",
+      "2026-01-01T10:00:00Z",
+    );
+    await inserirCandidatura(
+      plantaoUmaVaga,
+      medico1Id,
+      "REJEITADA",
+      "2026-01-01T11:00:00Z",
+    );
 
     const resposta = await listar(medico1Token).expect(200);
     expect(resposta.body).toHaveLength(2);
