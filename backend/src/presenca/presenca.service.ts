@@ -115,7 +115,10 @@ export class PresencaService {
           isNull(alocacoesTable.deleted_at),
         ),
       )
-      .orderBy(desc(registrosPontoTable.timestamp_servidor))
+      .orderBy(
+        desc(registrosPontoTable.timestamp_servidor),
+        desc(registrosPontoTable.id),
+      )
       .limit(paginacao.limit)
       .offset(paginacao.offset)
   }
