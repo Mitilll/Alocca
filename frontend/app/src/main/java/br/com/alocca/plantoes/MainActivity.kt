@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
@@ -316,6 +317,11 @@ private fun HomeScreen(perfil: PerfilUsuario) {
     var notificationsOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    if (activeTab == "Configurações") {
+        SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it })
+        return
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -391,6 +397,191 @@ private fun HomeScreen(perfil: PerfilUsuario) {
     }
 }
 
+@Composable
+private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+    var pushNotifications by remember { mutableStateOf(true) }
+    var calendarNotifications by remember { mutableStateOf(false) }
+    var emailNotifications by remember { mutableStateOf(true) }
+    var profileType by remember { mutableStateOf("Médico") }
+    var profileTypeMenuOpen by remember { mutableStateOf(false) }
+    val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Dr." }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Configurações", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier.size(40.dp).clickable { notificationsOpen = !notificationsOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
+                        Box(
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 2.dp).size(17.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape).background(Cyan),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                ) {
+                    SettingsProfileCard(primeiroNome, perfil.crm, perfil.ufCrm)
+                    Spacer(Modifier.height(17.dp))
+                    SettingsSectionTitle("Conta e segurança")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        SettingsNavigationRow(Icons.Default.PersonOutline, "Dados pessoais", "Atualize suas informações.", Color(0xFFE0F4FF), Color(0xFF1683BF))
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsNavigationRow(Icons.Default.Lock, "Dados pessoais", "Senha, autenticação e privacidade.", Color(0xFFE0F8EF), Color(0xFF0C9B72))
+                    }
+                    Spacer(Modifier.height(15.dp))
+                    SettingsSectionTitle("Preferências do aplicativo")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        SettingsSwitchRow(Icons.Default.NotificationsNone, "Notificações", "Gerencie caso queira receber alertas.", Color(0xFFE0F4FF), Color(0xFF1683BF), pushNotifications) { pushNotifications = it }
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsSwitchRow(Icons.Default.CalendarMonth, "Calendário", "Gerencie as notificações do seu calendário.", Color(0xFFE0F8EF), Color(0xFF0C9B72), calendarNotifications) { calendarNotifications = it }
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsSwitchRow(Icons.Default.Email, "Notificações por email", "Habilite esta opção para receber alertas por e-mail.", Color(0xFFF1EAFE), Color(0xFF7351A5), emailNotifications) { emailNotifications = it }
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsProfileTypeRow(
+                            profileType = profileType,
+                            expanded = profileTypeMenuOpen,
+                            onToggleMenu = { profileTypeMenuOpen = !profileTypeMenuOpen },
+                            onSelect = {
+                                profileType = it
+                                profileTypeMenuOpen = false
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(15.dp))
+                    SettingsSectionTitle("Informações do sistema")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard { SettingsNavigationRow(Icons.Default.Security, "Tipo de perfil", "Troque de perfil de acordo com seus serviços.", Color(0xFFF1EAFE), Color(0xFF7351A5)) }
+                    Spacer(Modifier.height(19.dp))
+                    SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false) }
+                    Spacer(Modifier.height(20.dp))
+                }
+                HomeBottomNavigation("Configurações", onSelected = onTabSelected)
+            }
+
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 46.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsProfileCard(name: String, crm: String?, uf: String?) {
+    SettingsCard {
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD9F3FC)),
+                contentAlignment = Alignment.Center,
+            ) { Text(name.take(2).uppercase(), color = DeepTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            Spacer(Modifier.width(13.dp))
+            Column {
+                Text("Dr. $name", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("CRM ${crm.orEmpty()}-${uf.orEmpty()}", color = Muted, fontSize = 11.sp)
+                Text("Clínico Geral", color = Muted, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionTitle(text: String) = Text(text, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(10.dp)).background(Color.White),
+        content = content,
+    )
+}
+
+@Composable
+private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, showDescription: Boolean = true) {
+    Row(modifier = Modifier.fillMaxWidth().clickable { }.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingsIcon(icon, background, tint)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = if (showDescription) Navy else tint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            if (showDescription) Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = Navy, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingsIcon(icon, background, tint)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.height(25.dp), colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF86F28B), uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFFE5E5EA)))
+    }
+}
+
+@Composable
+private fun SettingsProfileTypeRow(
+    profileType: String,
+    expanded: Boolean,
+    onToggleMenu: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleMenu).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingsIcon(Icons.Default.EventNote, Color(0xFFFFF0D9), Color(0xFFF29A14))
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Tipo de perfil", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Troque de perfil de acordo com seus serviços.", color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
+        }
+        Box {
+            Text(
+                "$profileType⌄",
+                color = Navy,
+                fontSize = 9.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(5.dp))
+                    .border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(5.dp))
+                    .clickable(onClick = onToggleMenu)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = onToggleMenu,
+            ) {
+                DropdownMenuItem(text = { Text("Médico") }, onClick = { onSelect("Médico") })
+                DropdownMenuItem(text = { Text("Instituição") }, onClick = { onSelect("Instituição") })
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, background: Color, tint: Color) {
+    Box(modifier = Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(background), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(19.dp))
+    }
+}
+
 /** Tela isolada para inspeção no Android Studio, sem login ou backend. */
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 393, heightDp = 852)
 @Composable
@@ -445,8 +636,8 @@ private fun HomeHeader(onNotification: () -> Unit) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = (-1).dp, y = 2.dp)
-                    .size(16.dp)
+                    .offset(x = 0.dp, y = 2.dp)
+                    .size(17.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape)
                     .background(Cyan),
                 contentAlignment = Alignment.Center,
