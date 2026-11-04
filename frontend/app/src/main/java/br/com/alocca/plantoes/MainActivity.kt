@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
@@ -209,7 +210,7 @@ private fun AuthApp() {
 
             val currentPerfil = perfil
             if (currentPerfil != null) {
-                HomeScreen(currentPerfil)
+                HomeScreen(currentPerfil, onLogout = ::logout)
             } else {
                 Column(
                     modifier = Modifier
@@ -309,7 +310,7 @@ private fun AuthApp() {
 }
 
 @Composable
-private fun HomeScreen(perfil: PerfilUsuario) {
+private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var activeTab by remember { mutableStateOf("Início") }
     var notice by remember { mutableStateOf("") }
     var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
@@ -324,7 +325,10 @@ private fun HomeScreen(perfil: PerfilUsuario) {
                     .statusBarsPadding()
                     .navigationBarsPadding(),
             ) {
-                HomeHeader(onNotification = { notificationsOpen = !notificationsOpen })
+                HomeHeader(
+                    onNotification = { notificationsOpen = !notificationsOpen },
+                    onLogout = onLogout,
+                )
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -408,12 +412,14 @@ private fun HomeScreenPreview() {
                 statusValidacao = "APROVADO",
                 motivoRejeicao = null,
             ),
+            onLogout = {},
         )
     }
 }
 
 @Composable
-private fun HomeHeader(onNotification: () -> Unit) {
+private fun HomeHeader(onNotification: () -> Unit, onLogout: () -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -422,7 +428,22 @@ private fun HomeHeader(onNotification: () -> Unit) {
             .padding(horizontal = 19.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Navy, modifier = Modifier.size(25.dp))
+        Box(
+            modifier = Modifier.size(40.dp).clickable { menuOpen = !menuOpen },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Navy, modifier = Modifier.size(25.dp))
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Sair da conta") },
+                    leadingIcon = { Icon(Icons.Default.Logout, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onLogout()
+                    },
+                )
+            }
+        }
         Spacer(Modifier.width(17.dp))
         Image(
             painter = painterResource(id = R.drawable.alocca_logo),
