@@ -317,6 +317,11 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    if (activeTab == "Plantões") {
+        ShiftsScreen(onTabSelected = { activeTab = it })
+        return
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -390,6 +395,273 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
 
             selectedShift?.let { shift ->
                 ShiftDetailsDialog(shift = shift, onDismiss = { selectedShift = null })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShiftsScreen(onTabSelected: (String) -> Unit) {
+    var selectedTab by remember { mutableStateOf("Disponíveis") }
+    var notificationsOpen by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf("") }
+    var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
+    var brasiliaApplied by remember { mutableStateOf(false) }
+    var santaClaraApplied by remember { mutableStateOf(false) }
+    var dateFilter by remember { mutableStateOf("Todos") }
+    var specialtyFilter by remember { mutableStateOf("Todas") }
+    var locationFilter by remember { mutableStateOf("Todos") }
+    val showBrasilia = (dateFilter == "Todos" || dateFilter == "24 JUN") &&
+        (specialtyFilter == "Todas" || specialtyFilter == "Pediatria") &&
+        (locationFilter == "Todos" || locationFilter == "Brasília")
+    val showSantaClara = (dateFilter == "Todos" || dateFilter == "25 JUN") &&
+        (specialtyFilter == "Todas" || specialtyFilter == "Clínica Médica") &&
+        (locationFilter == "Todos" || locationFilter == "Gama")
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(53.dp).padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Plantões", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier.size(40.dp).clickable { notificationsOpen = !notificationsOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
+                        Box(
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 2.dp).size(17.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape).background(Cyan),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(42.dp).background(Color(0xFFE9EAF3)).padding(3.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ShiftsTab("Disponíveis", selectedTab == "Disponíveis") { selectedTab = "Disponíveis" }
+                    ShiftsTab("Meus plantões", selectedTab == "Meus plantões") { selectedTab = "Meus plantões" }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    ShiftsBanner()
+                    Spacer(Modifier.height(19.dp))
+                    if (selectedTab == "Disponíveis") {
+                        Text("Plantões disponíveis", color = Color(0xFF20252B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        ShiftFilters(
+                            dateFilter = dateFilter,
+                            specialtyFilter = specialtyFilter,
+                            locationFilter = locationFilter,
+                            onDateSelected = { dateFilter = it },
+                            onSpecialtySelected = { specialtyFilter = it },
+                            onLocationSelected = { locationFilter = it },
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        if (showBrasilia) {
+                            AvailableShiftCard(
+                                "24", "JUN", "Ter. 19h", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 1.800,00", "Pronto Atendimento", "7 / 15", brasiliaApplied,
+                                onOpen = { selectedShift = ShiftDetails("24", "JUN", "Ter. 19h", "ABERTO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 1.800,00", true) },
+                                onApply = { brasiliaApplied = true; notice = "Candidatura enviada para Hospital Brasília." },
+                            )
+                            if (showSantaClara) Spacer(Modifier.height(12.dp))
+                        }
+                        if (showSantaClara) {
+                            AvailableShiftCard(
+                                "25", "JUN", "Qua. 07h", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 1.600,00", "Internação", "5 / 10", santaClaraApplied,
+                                onOpen = { selectedShift = ShiftDetails("25", "JUN", "Qua. 07h", "ABERTO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 1.600,00", true) },
+                                onApply = { santaClaraApplied = true; notice = "Candidatura enviada para Hospital Santa Clara." },
+                            )
+                        }
+                        if (!showBrasilia && !showSantaClara) {
+                            Text("Nenhum plantão encontrado para estes filtros.", color = Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 25.dp), textAlign = TextAlign.Center)
+                        } else {
+                            Text("Ver mais plantões⌄", color = Color(0xFF006EC6), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { notice = "Mais plantões estarão disponíveis em breve." }.padding(vertical = 15.dp))
+                        }
+                        Text("Convites para plantões", color = Color(0xFF20252B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        InvitationCard()
+                    } else {
+                        Text("Meus plantões", color = Color(0xFF20252B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Seus plantões confirmados aparecerão aqui.", color = Muted, fontSize = 13.sp)
+                    }
+                    if (notice.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(notice, color = DeepTeal, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFFE1F3F4)).padding(10.dp))
+                    }
+                    Spacer(Modifier.height(26.dp))
+                }
+                HomeBottomNavigation("Plantões", onSelected = onTabSelected)
+            }
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 47.dp, end = 15.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+            selectedShift?.let { shift ->
+                ShiftDetailsDialog(shift = shift, onDismiss = { selectedShift = null })
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ShiftsTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        color = if (selected) Color(0xFF006EC6) else Muted,
+        fontSize = 12.sp,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(7.dp)).background(if (selected) Color.White else Color.Transparent).clickable(onClick = onClick).wrapContentHeight(Alignment.CenterVertically),
+    )
+}
+
+@Composable
+private fun ShiftsBanner() {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(Color(0xFF006EC6)).padding(15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF2A8FE0)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Star, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(13.dp))
+        Column {
+            Text("Encontre plantões e faça a\ndiferença", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
+            Spacer(Modifier.height(3.dp))
+            Text("Escolha entre os plantões disponíveis na\nsua região.", color = Color.White, fontSize = 10.sp, lineHeight = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun ShiftFilters(
+    dateFilter: String,
+    specialtyFilter: String,
+    locationFilter: String,
+    onDateSelected: (String) -> Unit,
+    onSpecialtySelected: (String) -> Unit,
+    onLocationSelected: (String) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        FilterChip("Data", dateFilter, listOf("Todos", "24 JUN", "25 JUN"), onDateSelected)
+        FilterChip("Especialidade", specialtyFilter, listOf("Todas", "Pediatria", "Clínica Médica"), onSpecialtySelected)
+        FilterChip("Localização", locationFilter, listOf("Todos", "Brasília", "Gama"), onLocationSelected)
+    }
+}
+
+@Composable
+private fun RowScope.FilterChip(label: String, selected: String, options: List<String>, onSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val isDefault = selected == "Todos" || selected == "Todas"
+    Box(modifier = Modifier.weight(1f)) {
+        Text(
+            text = if (isDefault) "$label⌄" else "$selected⌄",
+            color = if (isDefault) Navy else Color(0xFF006EC6),
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).border(1.dp, if (isDefault) Color(0xFFD8D9E4) else Color(0xFF006EC6), RoundedCornerShape(15.dp)).background(if (isDefault) Color.Transparent else Color(0xFFE2F0FF)).clickable { expanded = true }.padding(horizontal = 6.dp, vertical = 7.dp),
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(option) }, onClick = {
+                    onSelected(option)
+                    expanded = false
+                })
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvailableShiftCard(day: String, month: String, weekday: String, hospital: String, specialty: String, location: String, value: String, type: String, applications: String, applied: Boolean, onOpen: () -> Unit, onApply: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(Color(0xFFF8F8FF)).border(1.dp, Color(0xFFE7E7F0), RoundedCornerShape(13.dp)).clickable(onClick = onOpen).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.width(54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(day, color = DeepTeal, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(month, color = DeepTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Text(weekday, color = Navy, fontSize = 9.sp)
+        }
+        Spacer(Modifier.width(6.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("ABERTO", color = Color(0xFF168548), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.background(Color(0xFFE1F5E7)).padding(horizontal = 6.dp, vertical = 3.dp))
+                Spacer(Modifier.weight(1f))
+                Text(value, color = DeepTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.background(Color(0xFFD7F3F7)).padding(horizontal = 6.dp, vertical = 4.dp))
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(hospital, color = Color(0xFF252A32), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(specialty, color = Muted, fontSize = 11.sp)
+            Spacer(Modifier.height(3.dp))
+            Text("⌾  $location", color = Muted, fontSize = 10.sp)
+            Text("◷  19:00 - 07:00 (12h)", color = Muted, fontSize = 10.sp)
+            Spacer(Modifier.height(7.dp))
+            Text(type, color = Color(0xFF1574CA), fontSize = 9.sp, modifier = Modifier.background(Color(0xFFE2F0FF)).padding(horizontal = 6.dp, vertical = 4.dp))
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Candidaturas $applications", color = Muted, fontSize = 9.sp)
+                    Spacer(Modifier.height(3.dp))
+                    Box(modifier = Modifier.width(54.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD5D8DE))) {
+                        Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.58f).background(DeepTeal))
+                    }
+                }
+                Button(
+                    onClick = onApply,
+                    enabled = !applied,
+                    modifier = Modifier.height(34.dp),
+                    contentPadding = PaddingValues(horizontal = 11.dp),
+                    shape = RoundedCornerShape(7.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF006EC6),
+                        disabledContainerColor = Color(0xFF12924B),
+                        disabledContentColor = Color.White,
+                    ),
+                ) { Text(if (applied) "Candidatou-se" else "Candidatar-se", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InvitationCard() {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).border(1.dp, Color(0xFFB9E9F1), RoundedCornerShape(13.dp)).padding(13.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(modifier = Modifier.size(37.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFE9EBF2)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.CalendarMonth, null, tint = DeepTeal, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(11.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row { Text("Você foi convidado!", color = DeepTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("CONVITE", color = Color(0xFF168548), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.background(Color(0xFFE1F5E7)).padding(horizontal = 5.dp, vertical = 3.dp)) }
+            Text("Hospital Brasília", color = Color(0xFF252A32), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("UTI Adulto", color = Muted, fontSize = 11.sp)
+            Spacer(Modifier.height(5.dp))
+            Text("⌾  Brasília - DF", color = Muted, fontSize = 10.sp)
+            Text("◷  19:00 - 07:00 (12h)", color = Muted, fontSize = 10.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Expira em\n23:45:12", color = Muted, fontSize = 9.sp, lineHeight = 11.sp, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { }, modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(7.dp)) { Text("Recusar", fontSize = 10.sp) }
+                Spacer(Modifier.width(6.dp))
+                Button(onClick = { }, modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(7.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF12924B))) { Text("Aceitar", fontSize = 10.sp) }
             }
         }
     }
