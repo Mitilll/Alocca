@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Home
@@ -317,6 +318,11 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    if (activeTab == "Financeiro") {
+        FinanceScreen(onTabSelected = { activeTab = it })
+        return
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -392,6 +398,93 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                 ShiftDetailsDialog(shift = shift, onDismiss = { selectedShift = null })
             }
         }
+    }
+}
+
+@Composable
+private fun FinanceScreen(onTabSelected: (String) -> Unit) {
+    var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
+    var notificationsOpen by remember { mutableStateOf(false) }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(58.dp).border(width = 1.dp, color = Color(0xFFE0E5E5)).padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Financeiro", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier.size(40.dp).clickable { notificationsOpen = !notificationsOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
+                        Box(
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 2.dp).size(17.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape).background(Cyan),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 27.dp),
+                ) {
+                    Spacer(Modifier.height(10.dp))
+                    FinancialSummary()
+                    Spacer(Modifier.height(17.dp))
+                    Text("A receber", color = Color(0xFF20252B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(11.dp))
+                    ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(10.dp))
+                    ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { selectedShift = it }
+                    Spacer(Modifier.height(10.dp))
+                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(10.dp))
+                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(24.dp))
+                }
+                HomeBottomNavigation("Financeiro", onSelected = onTabSelected)
+            }
+            selectedShift?.let { shift ->
+                ShiftDetailsDialog(shift = shift, onDismiss = { selectedShift = null })
+            }
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 52.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+        }
+    }
+}
+
+@Composable
+private fun FinancialSummary() {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF164D86)).padding(horizontal = 9.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        FinancialMetric(Icons.Default.AccountBalanceWallet, Color(0xFF0EA06D), "A receber", "R$2.450,00", "3 plantões")
+        FinancialMetric(Icons.Default.CheckCircle, Color(0xFF087FE0), "Recebidos", "R$6.759,00", "Este mês")
+        FinancialMetric(Icons.Default.CalendarMonth, Color(0xFF775DAD), "Pendentes", "R$1.500,00", "2 plantões")
+        FinancialMetric(Icons.Default.Star, Color(0xFFF69A17), "Total do mês", "R$8.200,00", "▲12% vs mês anterior")
+    }
+}
+
+@Composable
+private fun FinancialMetric(icon: androidx.compose.ui.graphics.vector.ImageVector, accent: Color, label: String, value: String, detail: String) {
+    Column(modifier = Modifier.width(72.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(accent), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(label, color = Color.White, fontSize = 9.sp, textAlign = TextAlign.Center, maxLines = 1)
+        Spacer(Modifier.height(3.dp))
+        Text(value, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+        Text(detail, color = if (detail.startsWith("▲")) Color(0xFF61D495) else Color.White, fontSize = 8.sp, textAlign = TextAlign.Center, lineHeight = 10.sp, maxLines = 2)
     }
 }
 
