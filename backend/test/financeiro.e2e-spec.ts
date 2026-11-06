@@ -120,6 +120,11 @@ describe('Financeiro do médico (GET /financeiro/medico, #18)', () => {
       )
     }
 
+    // `now()` é do Postgres: vencimentos futuros são relativos ao relógio real,
+    // para não virarem "vencidos" com o passar do tempo.
+    const emDias = (dias: number) =>
+      new Date(Date.now() + dias * 86_400_000).toISOString()
+
     await criarPagamento({
       medicoId: medico1Id,
       dataPlantao: '2026-09-10T10:00:00Z',
@@ -130,7 +135,7 @@ describe('Financeiro do médico (GET /financeiro/medico, #18)', () => {
       medicoId: medico1Id,
       dataPlantao: '2026-10-10T10:00:00Z',
       status: 'PENDENTE',
-      vencimentoEm: '2027-01-01T00:00:00Z',
+      vencimentoEm: emDias(60),
     })
     await criarPagamento({
       medicoId: medico1Id,
@@ -142,7 +147,7 @@ describe('Financeiro do médico (GET /financeiro/medico, #18)', () => {
       medicoId: medico2Id,
       dataPlantao: '2026-10-12T10:00:00Z',
       status: 'PENDENTE',
-      vencimentoEm: '2027-02-01T00:00:00Z',
+      vencimentoEm: emDias(90),
     })
 
     const jwt = app.get(JwtService)
