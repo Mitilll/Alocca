@@ -11,7 +11,6 @@ import {
 import type { AgendaDia, AgendaPeriodo } from './agenda.tipos.ts'
 
 const FUSO_APRESENTACAO = 'America/Sao_Paulo'
-const FUSO_OFFSET = '-03:00'
 const FORMATO_DATA = new Intl.DateTimeFormat('en-CA', {
   timeZone: FUSO_APRESENTACAO,
   year: 'numeric',
@@ -62,11 +61,12 @@ export class AgendaService {
   async doMes(usuarioId: string, periodo: AgendaPeriodo): Promise<AgendaDia[]> {
     const medicoId = await this.perfilMedicoId(usuarioId)
 
-    const inicio = new Date(
-      `${periodo.ano}-${String(periodo.mes).padStart(2, '0')}-01T00:00:00${FUSO_OFFSET}`,
-    )
-    const fim = new Date(inicio)
-    fim.setUTCMonth(fim.getUTCMonth() + 1)
+    // Limites do mês no mesmo fuso nomeado usado para agrupar por dia
+    // (respeita o horário de verão histórico de America/Sao_Paulo).
+    const proximoAno = periodo.mes === 12 ? periodo.ano + 1 : periodo.ano
+    const proximoMes = periodo.mes === 12 ? 1 : periodo.mes + 1
+    const inicio = sql`make_timestamptz(${periodo.ano}::int, ${periodo.mes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO})`
+    const fim = sql`make_timestamptz(${proximoAno}::int, ${proximoMes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO})`
 
     const visao = and(
       gte(plantoesTable.data_inicio, inicio),
@@ -103,6 +103,7 @@ export class AgendaService {
           and(
             eq(candidaturasTable.medico_id, medicoId),
             eq(candidaturasTable.status, 'PENDENTE'),
+            isNull(candidaturasTable.deleted_at),
             visaoComEstado,
           ),
         ),
@@ -121,7 +122,13 @@ export class AgendaService {
           instituicoesTable,
           eq(plantoesTable.instituicao_id, instituicoesTable.id),
         )
-        .where(and(eq(alocacoesTable.medico_id, medicoId), visaoComEstado)),
+        .where(
+          and(
+            eq(alocacoesTable.medico_id, medicoId),
+            isNull(alocacoesTable.deleted_at),
+            visaoComEstado,
+          ),
+        ),
     ])
 
     return this.agruparPorDia(pendentes, alocados)
@@ -145,11 +152,11 @@ export class AgendaService {
         plantao: registro.plantao,
         instituicao: registro.instituicao,
       }))
-      .sort((a, b) => a.plantao.data_fim.getTime() - b.plantao.data_fim.getTime())
+      .sort((a, b) => a.plantao.data_inicio.getTime() - b.plantao.data_inicio.getTime())
 
     const dias = new Map<string, AgendaDia>()
     for (const item of itens) {
-      const chave = FORMATO_DATA.format(item.plantao.data_fim)
+      const chave = FORMATO_DATA.format(item.plantao.data_inicio)
       const grupo = dias.get(chave) ?? { dia: chave, itens: [] }
       grupo.itens.push(item)
       dias.set(chave, grupo)
