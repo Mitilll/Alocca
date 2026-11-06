@@ -237,6 +237,21 @@ describe('Presença do médico (GET /presenca e /presenca/historico, #50)', () =
     )
   })
 
+  it('plantão ou instituição excluídos (soft delete) somem do status e do histórico', async () => {
+    await historico('', medico1Token).expect(200).expect((r) => {
+      expect(r.body.length).toBeGreaterThan(0)
+    })
+    await database.query('UPDATE plantoes SET deleted_at = now()')
+    await statusDaAlocacao(alocacaoMedico1, medico1Token).expect(404)
+    expect((await historico('', medico1Token).expect(200)).body).toEqual([])
+
+    await database.query('UPDATE plantoes SET deleted_at = null')
+    await statusDaAlocacao(alocacaoMedico1, medico1Token).expect(200)
+    await database.query('UPDATE instituicoes SET deleted_at = now()')
+    await statusDaAlocacao(alocacaoMedico1, medico1Token).expect(404)
+    expect((await historico('', medico1Token).expect(200)).body).toEqual([])
+  })
+
   it('médico sem registros recebe lista vazia (empty state)', async () => {
     await database.query('DELETE FROM registros_ponto')
     const resposta = await historico('', medico1Token).expect(200)
