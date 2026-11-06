@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { APP_GUARD } from '@nestjs/core'
+import { APP_FILTER, APP_GUARD } from '@nestjs/core'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { AuthModule } from './auth/auth.module.ts'
 import { ConfigModule } from '@nestjs/config'
@@ -7,9 +7,11 @@ import { ConfigModule } from '@nestjs/config'
 import { validateEnv } from './config/env.ts'
 import { DatabaseModule } from './db/db.module.ts'
 import { AgendaModule } from './agenda/agenda.module.ts'
+import { FiltroMensagens } from './common/mensagens.filter.ts'
 import { HealthModule } from './health/health.module.ts'
 import { MedicosModule } from './medicos/medicos.module.ts'
 import { CandidaturasModule } from './candidaturas/candidaturas.module.ts'
+import { CheckinModule } from './checkin/checkin.module.ts'
 import { PlantoesModule } from './plantoes/plantoes.module.ts'
 
 @Module({
@@ -27,8 +29,12 @@ import { PlantoesModule } from './plantoes/plantoes.module.ts'
     MedicosModule,
     PlantoesModule,
     CandidaturasModule,
+    CheckinModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_FILTER, useClass: FiltroMensagens },
+  ],
 })
 export class AppModule {}
