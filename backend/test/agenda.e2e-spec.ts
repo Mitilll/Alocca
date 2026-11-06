@@ -23,6 +23,9 @@ describe('Agenda mensal (GET /agenda/mes, #16)', () => {
   }
 
   beforeAll(async () => {
+    // Congela só o `Date`: o status CONFIRMADO/CONCLUIDO depende de "agora" e
+    // as fixtures usam datas fixas de nov/2026 (sem bomba-relógio).
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-05T12:00:00Z') })
     database = new PGlite()
     for (const directory of (await readdir('drizzle')).sort()) {
       await database.exec(
@@ -68,7 +71,6 @@ describe('Agenda mensal (GET /agenda/mes, #16)', () => {
     ).rows
     await database.query("INSERT INTO gestores (usuario_id) SELECT id FROM usuarios WHERE nome = 'Gestor Um'")
 
-    const criadoEmNovembro = new Date('2026-11-01T00:00:00Z')
     await database.query(
       `INSERT INTO instituicoes (id, usuario_id, nome, nome_fantasia, cnpj, cidade, uf)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -82,7 +84,6 @@ describe('Agenda mensal (GET /agenda/mes, #16)', () => {
         'DF',
       ],
     )
-    void criadoEmNovembro
 
     const novoPlantao = async (params: {
       titulo: string
@@ -177,6 +178,7 @@ describe('Agenda mensal (GET /agenda/mes, #16)', () => {
   })
 
   afterAll(async () => {
+    vi.useRealTimers()
     await app?.close()
     await database?.close()
   })
@@ -234,6 +236,45 @@ describe('Agenda mensal (GET /agenda/mes, #16)', () => {
     expect(titulos1).not.toContain('De Outro Medico')
     expect(titulos2).toContain('De Outro Medico')
     expect(titulos2).not.toContain('Candidatura Pendente')
+  })
+
+  async function plantaoExtra(titulo: string, inicio: string, fim: string) {
+    const { rows } = await database.query<{ id: string }>(
+      `INSERT INTO plantoes (instituicao_id, gestor_criador_id, titulo, local_unidade,
+        especialidade, data_inicio, data_fim, valor, quantidade_vagas, vagas_disponiveis, status)
+       SELECT '11111111-1111-4111-8111-111111111111', u.id, $1, 'Home Care', 'Clínica Médica',
+        $2::timestamptz, $3::timestamptz, '800.00', 1, 1, 'ABERTO'
+       FROM usuarios u WHERE u.nome = 'Gestor Um' RETURNING id`,
+      [titulo, inicio, fim],
+    )
+    return rows[0].id
+  }
+
+  it('plantão noturno que atravessa o fim do mês fica no dia de início', async () => {
+    const id = await plantaoExtra(
+      'Noturno Virada',
+      '2026-11-30T22:00:00-03:00',
+      '2026-12-01T06:00:00-03:00',
+    )
+    await database.query(
+      "INSERT INTO candidaturas (plantao_id, medico_id, status) SELECT $1, id, 'PENDENTE' FROM medicos WHERE crm = '123456'",
+      [id],
+    )
+    const novembro = await respostaAgenda(2026, 11, medico1Token)
+    expect(novembro.map((i: { plantao: { titulo: string } }) => i.plantao.titulo)).toContain('Noturno Virada')
+    const dezembro = await respostaAgenda(2026, 12, medico1Token)
+    expect(dezembro.map((i: { plantao: { titulo: string } }) => i.plantao.titulo)).not.toContain('Noturno Virada')
+    const resposta = await consultar(2026, 11, medico1Token).expect(200)
+    expect(resposta.body.at(-1).dia).toBe('2026-11-30')
+  })
+
+  it('candidatura e alocação excluídas (soft delete) não aparecem', async () => {
+    await database.query(
+      "UPDATE candidaturas SET deleted_at = now() WHERE status = 'PENDENTE' AND medico_id = (SELECT id FROM medicos WHERE crm = '123456')",
+    )
+    await database.query('UPDATE alocacoes SET deleted_at = now()')
+    const resposta = await respostaAgenda(2026, 11, medico1Token)
+    expect(resposta).toEqual([])
   })
 
   it('payload do card traz plantão e instituição completos', async () => {
