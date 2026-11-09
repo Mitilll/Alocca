@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
 
 private enum class Screen { Login, Register }
 private enum class QuickActionScreen { Security, Calendar, Profile, Workplaces }
+private enum class InstitutionScreen { Home, Shifts, Doctors, Payments, TimeRecord, PublishShift }
 
 @Composable
 private fun AuthApp() {
@@ -211,7 +212,11 @@ private fun AuthApp() {
 
             val currentPerfil = perfil
             if (currentPerfil != null) {
-                HomeScreen(currentPerfil, onLogout = ::logout)
+                if (currentPerfil.tipo == "GESTOR") {
+                    InstitutionApp(currentPerfil, onLogout = ::logout)
+                } else {
+                    HomeScreen(currentPerfil, onLogout = ::logout)
+                }
             } else {
                 Column(
                     modifier = Modifier
@@ -834,6 +839,273 @@ private fun AttendanceDetail(label: String, value: String, icon: androidx.compos
         }
     }
 }
+
+private data class InstitutionShift(
+    val status: String,
+    val hospital: String,
+    val specialty: String,
+    val date: String,
+    val vacancies: String,
+    val value: String,
+)
+
+@Composable
+private fun InstitutionApp(perfil: PerfilUsuario, onLogout: () -> Unit) {
+    var screen by remember { mutableStateOf(InstitutionScreen.Home) }
+    val open: (InstitutionScreen) -> Unit = { screen = it }
+    when (screen) {
+        InstitutionScreen.Home -> InstitutionHomeScreen(perfil.nome, open)
+        InstitutionScreen.Shifts -> InstitutionShiftsScreen(open)
+        InstitutionScreen.Doctors -> InstitutionDoctorsScreen(open)
+        InstitutionScreen.Payments -> InstitutionPaymentsScreen(open)
+        InstitutionScreen.TimeRecord -> InstitutionTimeRecordScreen(open)
+        InstitutionScreen.PublishShift -> PublishShiftScreen(onBack = { screen = InstitutionScreen.Shifts }, onPublished = { screen = InstitutionScreen.Shifts })
+    }
+}
+
+@Composable
+private fun InstitutionHomeScreen(name: String, onNavigate: (InstitutionScreen) -> Unit) {
+    InstitutionPage(InstitutionScreen.Home, onNavigate) {
+        ManagerHeader()
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(15.dp))
+            Text("Olá, Gestor!", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Confira o resumo da sua instituição e\ngerencie seus plantões.", color = Color(0xFF45617D), fontSize = 12.sp, lineHeight = 15.sp)
+            Spacer(Modifier.height(12.dp))
+            ManagerSummary()
+            Spacer(Modifier.height(15.dp))
+            SectionTitle("Plantões recentes", "Ver todos") { onNavigate(InstitutionScreen.Shifts) }
+            Spacer(Modifier.height(8.dp))
+            InstitutionShiftCard(InstitutionShift("AGUARDANDO PAGAMENTO", "UTI Adulto", "Hospital Santa Clara", "Hoje • 19:00 - 07:00", "10/10 vagas preenchidas", ""))
+            Spacer(Modifier.height(8.dp))
+            InstitutionShiftCard(InstitutionShift("EM ANDAMENTO", "Clínica Médica", "Hospital Santa Clara", "Hoje • 19:00 - 07:00", "7/10 vagas preenchidas", ""))
+            Spacer(Modifier.height(8.dp))
+            InstitutionShiftCard(InstitutionShift("FINALIZADO", "Pediatria", "Hospital Santa Clara", "Hoje • 19:00 - 07:00", "10/10 vagas preenchidas", ""))
+            Spacer(Modifier.height(12.dp))
+            Text("Ver mais", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().clickable { onNavigate(InstitutionScreen.Shifts) }.padding(vertical = 3.dp), textAlign = TextAlign.Center)
+            Spacer(Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFE2F2FF)).border(1.dp, Color(0xFF6AAEEC), RoundedCornerShape(12.dp)).clickable { onNavigate(InstitutionScreen.PublishShift) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(42.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF1265A8)), contentAlignment = Alignment.Center) { Text("+", color = Color.White, fontSize = 34.sp, lineHeight = 34.sp) }
+                Spacer(Modifier.width(12.dp))
+                Column { Text("Publicar novo plantão", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text("Defina a especialidade, data, horário, vagas\ne valor do plantão.", color = Color(0xFF45617D), fontSize = 10.sp, lineHeight = 12.sp) }
+            }
+            Spacer(Modifier.height(18.dp))
+        }
+        ManagerBottomNavigation(InstitutionScreen.Home, onNavigate)
+    }
+}
+
+@Composable
+private fun InstitutionPage(active: InstitutionScreen, onNavigate: (InstitutionScreen) -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF9FBFD)) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), content = content)
+        // A navegação é renderizada pelo conteúdo para preservar a área rolável de cada tela.
+    }
+}
+
+@Composable
+private fun ManagerHeader() {
+    Row(modifier = Modifier.fillMaxWidth().height(55.dp).background(Color.White).border(1.dp, Color(0xFFE0E7ED)).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Menu, null, tint = Navy, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(18.dp))
+        Image(painter = painterResource(id = R.drawable.alocca_logo), contentDescription = "Alocca Plantões", modifier = Modifier.width(105.dp).height(40.dp))
+        Spacer(Modifier.weight(1f))
+        Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) { Icon(Icons.Default.NotificationsNone, null, tint = Navy, modifier = Modifier.size(22.dp)); Text("3", color = Color.White, fontSize = 8.sp, modifier = Modifier.align(Alignment.TopEnd).clip(androidx.compose.foundation.shape.CircleShape).background(Cyan).padding(horizontal = 4.dp, vertical = 1.dp)) }
+    }
+}
+
+@Composable
+private fun ManagerSummary() {
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B3A76)).padding(10.dp)) {
+        Text("Resumo rápido", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            listOf("▣" to "3\nPlantões\npublicados", "♧" to "67\nMédicos\ncadastrados", "▤" to "R$24.359,00\nTotal em\npagamentos", "♙" to "32\nVagas\npreenchidas").forEach { (symbol, value) ->
+                Column(modifier = Modifier.width(61.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF21528C)).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(symbol, color = Color.White, fontSize = 19.sp); Text(value, color = Color.White, fontSize = 9.sp, lineHeight = 11.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstitutionShiftCard(shift: InstitutionShift, onClick: () -> Unit = {}) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White).border(1.dp, Color(0xFFD4DCE2), RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.width(62.dp).height(76.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFFD9F4FF)), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Text("20", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold); Text("JUN", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(5.dp)); Text("Sex. 19h", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) { Text(shift.status, color = Color(0xFF1287AF), fontSize = 8.sp, fontWeight = FontWeight.Bold); Text(shift.hospital, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold); Text(shift.specialty, color = Color(0xFF4D6681), fontSize = 10.sp); Text("♧ ${shift.vacancies}", color = Color(0xFF4D6681), fontSize = 9.sp); Text("◷ ${shift.date}", color = Color(0xFF4D6681), fontSize = 9.sp) }
+        Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF7390A8), modifier = Modifier.size(19.dp))
+    }
+}
+
+@Composable
+private fun ManagerBottomNavigation(active: InstitutionScreen, onNavigate: (InstitutionScreen) -> Unit) {
+    val items = listOf(
+        Triple("Início", Icons.Default.Home, InstitutionScreen.Home),
+        Triple("Plantões", Icons.Default.CalendarMonth, InstitutionScreen.Shifts),
+        Triple("Médicos", Icons.Default.PersonOutline, InstitutionScreen.Doctors),
+        Triple("Financeiro", Icons.Default.AccountBalanceWallet, InstitutionScreen.Payments),
+        Triple("Ponto", Icons.Default.AccessTime, InstitutionScreen.TimeRecord),
+    )
+    Row(modifier = Modifier.fillMaxWidth().height(61.dp).background(Color.White).border(1.dp, Color(0xFFE0E7ED)), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        items.forEach { (label, icon, destination) ->
+            val selected = active == destination
+            Column(modifier = Modifier.width(58.dp).clickable { onNavigate(destination) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(modifier = Modifier.size(if (selected) 31.dp else 24.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (selected) Color(0xFF1475D1) else Color.Transparent), contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (selected) Color.White else Color(0xFF6C8197), modifier = Modifier.size(19.dp)) }
+                Text(label, color = if (selected) Color(0xFF1475D1) else Color(0xFF6C8197), fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstitutionDoctorsScreen(onNavigate: (InstitutionScreen) -> Unit) {
+    InstitutionPage(InstitutionScreen.Doctors, onNavigate) {
+        SimpleManagerTitle("Médicos", "Gerencie os médicos cadastrados na sua instituição e visualize seus perfis.")
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            ManagerSearch("Buscar por nome, especialidade ou CRM...")
+            Spacer(Modifier.height(10.dp))
+            ManagerFilterRow()
+            Spacer(Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(Color.White).border(1.dp, Color(0xFFE1E8ED), RoundedCornerShape(13.dp)).padding(vertical = 13.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                listOf("48" to "Cadastrados", "42" to "Ativos", "4" to "Em análise", "2" to "Inativos").forEach { (value, label) -> Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold); Text(label, color = Muted, fontSize = 8.sp) } }
+            }
+            Spacer(Modifier.height(14.dp))
+            listOf("Dr. Carlos Mendes" to "UTI Adulto", "Dra. Ana Souza" to "Pediatria", "Dr. Rafael Lima" to "Clínica Médica", "Dra. Juliana Alves" to "Ginecologia e Obstetrícia", "Dr. Bruno Costa" to "Ortopedia", "Dra. Larissa Gomes" to "Cardiologia").forEachIndexed { index, doctor ->
+                DoctorListCard(doctor.first, doctor.second, if (index == 4) "Em análise" else if (index == 5) "Inativo" else "Ativo")
+                Spacer(Modifier.height(8.dp))
+            }
+            Spacer(Modifier.height(14.dp))
+        }
+        ManagerBottomNavigation(InstitutionScreen.Doctors, onNavigate)
+    }
+}
+
+@Composable
+private fun SimpleManagerTitle(title: String, subtitle: String) {
+    Column(modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 17.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("‹", color = Navy, fontSize = 29.sp); Spacer(Modifier.width(9.dp)); Text(title, color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Alocca\nPLANTÕES", color = Navy, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End) }
+        Spacer(Modifier.height(8.dp)); Text(subtitle, color = Color(0xFF5A718A), fontSize = 10.sp, lineHeight = 14.sp)
+    }
+}
+
+@Composable
+private fun ManagerSearch(placeholder: String) {
+    Row(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(10.dp)).background(Color.White).border(1.dp, Color(0xFFDDE5EB), RoundedCornerShape(10.dp)).padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Search, null, tint = Color(0xFF8BA0B6), modifier = Modifier.size(19.dp)); Spacer(Modifier.width(8.dp)); Text(placeholder, color = Color(0xFF91A4B8), fontSize = 10.sp) }
+}
+
+@Composable
+private fun ManagerFilterRow() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("⚭ Todos", "Especialidade⌄", "Situação⌄").forEachIndexed { index, label -> Text(label, color = if (index == 0) Color.White else Color(0xFF45617D), fontSize = 10.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.clip(RoundedCornerShape(9.dp)).background(if (index == 0) Color(0xFF0785C9) else Color.White).border(if (index == 0) 0.dp else 1.dp, Color(0xFFDDE5EB), RoundedCornerShape(9.dp)).padding(horizontal = 13.dp, vertical = 8.dp)) }
+    }
+}
+
+@Composable
+private fun DoctorListCard(name: String, specialty: String, status: String) {
+    val color = when (status) { "Ativo" -> Color(0xFF10B878); "Em análise" -> Color(0xFF4089EE); else -> Color(0xFFE85A76) }
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(Color.White).border(1.dp, Color(0xFFE1E8ED), RoundedCornerShape(13.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFDDF0FF)), contentAlignment = Alignment.Center) { Icon(Icons.Default.PersonOutline, null, tint = Color(0xFF1671B7), modifier = Modifier.size(26.dp)) }
+        Spacer(Modifier.width(10.dp)); Column(modifier = Modifier.weight(1f)) { Text(name, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold); Text("♡ $specialty", color = Color(0xFF667E96), fontSize = 10.sp); Text("▣ CRM 123456/DF", color = Color(0xFF91A3B7), fontSize = 9.sp) }
+        Text("• $status", color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(if (status == "Ativo") Color(0xFFE0F9EF) else Color(0xFFFFEEF1)).padding(horizontal = 8.dp, vertical = 5.dp)); Spacer(Modifier.width(3.dp)); Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF7C92A8), modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun InstitutionPaymentsScreen(onNavigate: (InstitutionScreen) -> Unit) {
+    InstitutionPage(InstitutionScreen.Payments, onNavigate) {
+        SimpleManagerTitle("Pagamentos", "Acompanhe os pagamentos dos plantões, visualize o histórico e\ngerencie os valores de forma prática e segura.")
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PaymentSummary("Total a pagar", "R$ 24.580,00", "12 plantões", Color(0xFFEAF5FF))
+                PaymentSummary("Pagamentos\nrealizados", "R$ 18.320,00", "8 plantões", Color(0xFFEAFBF3))
+                PaymentSummary("Aguardando\npagamento", "R$ 6.260,00", "4 plantões", Color(0xFFFFF4E4))
+            }
+            Spacer(Modifier.height(17.dp)); ManagerSearch("Buscar por médico, plantão ou período..."); Spacer(Modifier.height(10.dp)); ManagerFilterRow(); Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) { Text("▦  Pagamentos", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Ver histórico completo  →", color = Color(0xFF1679C3), fontSize = 9.sp) }
+            Spacer(Modifier.height(10.dp))
+            listOf("Dr. Carlos Mendes" to "R$ 1.800,00" to "Pago", "Dra. Ana Souza" to "R$ 1.200,00" to "Pago", "Dr. Rafael Lima" to "R$ 1.500,00" to "Aguardando", "Dra. Juliana Alves" to "R$ 1.300,00" to "Pago", "Dr. Bruno Costa" to "R$ 1.100,00" to "Aguardando").forEach { item -> PaymentCard(item.first.first, item.first.second, item.second) }
+            Spacer(Modifier.height(15.dp))
+        }
+        ManagerBottomNavigation(InstitutionScreen.Payments, onNavigate)
+    }
+}
+
+@Composable
+private fun PaymentSummary(title: String, value: String, label: String, color: Color) {
+    Column(modifier = Modifier.width(96.dp).height(110.dp).clip(RoundedCornerShape(11.dp)).background(color).border(1.dp, Color(0xFFD9E6ED), RoundedCornerShape(11.dp)).padding(10.dp)) { Text("◉", color = Color(0xFF1487CF), fontSize = 17.sp); Spacer(Modifier.height(7.dp)); Text(title, color = Color(0xFF647B94), fontSize = 9.sp, lineHeight = 11.sp); Spacer(Modifier.height(3.dp)); Text(value, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text(label, color = Color(0xFF1286C4), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+}
+
+@Composable
+private fun PaymentCard(name: String, value: String, status: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).border(1.dp, Color(0xFFE5EBEF), RoundedCornerShape(12.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(33.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFE6F0F9)), contentAlignment = Alignment.Center) { Icon(Icons.Default.PersonOutline, null, tint = Color(0xFF87A3BD), modifier = Modifier.size(20.dp)) }; Spacer(Modifier.width(10.dp)); Column(modifier = Modifier.weight(1f)) { Text(name, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text("UTI Adulto", color = Color(0xFF657C96), fontSize = 9.sp); Text("▣ 12/09 • 19:00 - 07:00", color = Color(0xFF91A3B7), fontSize = 8.sp); Text("⌖ Hospital Santa Clara", color = Color(0xFF91A3B7), fontSize = 8.sp) }; Column(horizontalAlignment = Alignment.End) { Text(value, color = Navy, fontSize = 10.sp, fontWeight = FontWeight.Bold); Text(status, color = if (status == "Pago") Color(0xFF139A67) else Color(0xFFE18A16), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (status == "Pago") Color(0xFFDCF7EB) else Color(0xFFFFF0D9)).padding(horizontal = 6.dp, vertical = 3.dp)) }; Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF7C92A8), modifier = Modifier.size(18.dp)) }
+}
+
+@Composable
+private fun InstitutionShiftsScreen(onNavigate: (InstitutionScreen) -> Unit) {
+    InstitutionPage(InstitutionScreen.Shifts, onNavigate) {
+        SimpleManagerTitle("Plantões", "")
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Color(0xFFE9F3FC))) { listOf("Todos", "Ativos", "Aguardando", "Finalizados").forEachIndexed { index, label -> Text(label, color = if (index == 0) Color.White else Color(0xFF5D7B99), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).background(if (index == 0) Color(0xFF1475D1) else Color.Transparent).padding(vertical = 9.dp)) }; Spacer(Modifier.height(13.dp)) }
+            listOf(
+                InstitutionShift("CONFIRMADO", "Hospital Regional do Gama", "Clínica Médica", "Gama - DF • 19:00 - 07:00", "", "R$ 800,00"),
+                InstitutionShift("AGUARDANDO PAGAMENTO", "Hospital Santa Marta", "Clínica Médica", "Taguatinga - DF • 19:00 - 07:00", "", "R$ 950,00"),
+                InstitutionShift("CONFIRMADO", "Hospital DF Star", "Pediatria", "Brasília - DF • 19:00 - 07:00", "", "R$ 700,00"),
+                InstitutionShift("PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF • 19:00 - 07:00", "", "R$ 650,00"),
+            ).forEach { InstitutionShiftCard(it); Spacer(Modifier.height(8.dp)) }
+            Spacer(Modifier.height(6.dp)); Text("Sem plantões?", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); Spacer(Modifier.height(8.dp)); Button(onClick = { onNavigate(InstitutionScreen.PublishShift) }, modifier = Modifier.fillMaxWidth().height(47.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3278B5))) { Text("Publicar plantão", fontWeight = FontWeight.Bold) }; Spacer(Modifier.height(14.dp))
+        }
+        ManagerBottomNavigation(InstitutionScreen.Shifts, onNavigate)
+    }
+}
+
+@Composable
+private fun PublishShiftScreen(onBack: () -> Unit, onPublished: () -> Unit) {
+    var specialty by remember { mutableStateOf("") }; var date by remember { mutableStateOf("") }; var hours by remember { mutableStateOf("") }; var location by remember { mutableStateOf("") }; var value by remember { mutableStateOf("") }; var vacancies by remember { mutableStateOf("") }; var note by remember { mutableStateOf("") }; var published by remember { mutableStateOf(false) }
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Row(modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) { Text("‹", color = Navy, fontSize = 29.sp, modifier = Modifier.clickable(onClick = onBack)); Spacer(Modifier.width(9.dp)); Text("Publicar plantão", color = Navy, fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)) {
+                Text("Preencha as informações abaixo para\npublicar um plantão na sua instituição", color = Navy, fontSize = 11.sp, lineHeight = 14.sp); Spacer(Modifier.height(15.dp))
+                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).border(1.dp, Color(0xFFC8C9D5), RoundedCornerShape(9.dp)).padding(13.dp)) {
+                    ManagerInput("Especialidade médica", specialty, { specialty = it }, "Selecione a especialidade"); ManagerInput("Data do plantão", date, { date = it }, "Selecione a data"); ManagerInput("Horário", hours, { hours = it }, "Início — até — fim"); ManagerInput("Local de atuação", location, { location = it }, "Digite o nome ou endereço da unidade"); Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Box(Modifier.weight(1f)) { ManagerInput("Valor do Plantão", value, { value = it }, "R$ 0,00") }; Box(Modifier.weight(1f)) { ManagerInput("Vagas", vacancies, { vacancies = it }, "Ex.: 10") } }; ManagerInput("Observações (opcional)", note, { note = it }, "Informações adicionais sobre o plantão")
+                }
+                Spacer(Modifier.height(16.dp)); Button(onClick = { published = true }, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3278B5))) { Text(if (published) "Plantão publicado" else "✈  Publicar plantão", fontSize = 16.sp, fontWeight = FontWeight.Bold) }; if (published) Text("Plantão publicado com sucesso.", color = Color(0xFF0B8A5D), fontSize = 11.sp, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), textAlign = TextAlign.Center); Spacer(Modifier.height(20.dp)); Text("＋", color = Color.White, fontSize = 42.sp, modifier = Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(7.dp)).background(Color(0xFF3278B5)).padding(horizontal = 6.dp)); Text("Convidar médicos", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); Spacer(Modifier.height(20.dp))
+            }
+            ManagerBottomNavigation(InstitutionScreen.Shifts) { }
+        }
+    }
+}
+
+@Composable
+private fun ManagerInput(label: String, value: String, onChange: (String) -> Unit, placeholder: String) { Column(modifier = Modifier.padding(bottom = 9.dp)) { Text(label, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(4.dp)); OutlinedTextField(value = value, onValueChange = onChange, placeholder = { Text(placeholder, fontSize = 10.sp) }, singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, color = Navy), modifier = Modifier.fillMaxWidth().height(45.dp), shape = RoundedCornerShape(8.dp)) } }
+
+@Composable
+private fun InstitutionTimeRecordScreen(onNavigate: (InstitutionScreen) -> Unit) {
+    InstitutionPage(InstitutionScreen.TimeRecord, onNavigate) {
+        SimpleManagerTitle("Registro de Ponto", "Registre sua entrada e saída do plantão com validação de\nhorário e geolocalização.")
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TimeSummary("Plantão Atual", "19:00 - 07:00", "UTI Adulto - 12h", Color(0xFFEAF5FF)); TimeSummary("Check-in (Entrada)", "18:52", "No raio do hospital\n(GPS)", Color(0xFFEAFBF3)); TimeSummary("Check-out (Saída)", "Pendente", "Previsto: 07:00", Color(0xFFFFF5E7)) }
+            Spacer(Modifier.height(13.dp))
+            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color.White).border(1.dp, Color(0xFFDCE6ED), RoundedCornerShape(10.dp)).padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF15B879))); Spacer(Modifier.width(6.dp)); Text("Plantão em Andamento", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Em curso", color = Color(0xFF0E9C68), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xFFE0F8EB)).padding(horizontal = 6.dp, vertical = 3.dp)) }
+                Spacer(Modifier.height(14.dp)); Text("⌖  Hospital Santa Clara", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold); Text("UTI Adulto - Leitos 01 a 10", color = Color(0xFF627A92), fontSize = 9.sp); Text("Hoje, 24 de Outubro • 19:00 às 07:00", color = Color(0xFF627A92), fontSize = 9.sp); Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Color(0xFFE7F2FF)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) { Column(modifier = Modifier.weight(1f)) { Text("Tempo decorrido", color = Color(0xFF5F7A9A), fontSize = 9.sp); Text("05h 42m trabalhadas", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold) }; Icon(Icons.Default.AccessTime, null, tint = Color(0xFF187ACC), modifier = Modifier.size(21.dp)) }
+                Spacer(Modifier.height(8.dp)); Text("✓  Geolocalização validada (a 45m do hospital)", color = Color(0xFF0A9A63), fontSize = 9.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color(0xFFE0F8EB)).padding(7.dp)); Spacer(Modifier.height(10.dp)); Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(42.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF103D70))) { Text("▣  Registrar Check-out (Saída)", fontSize = 11.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth().height(39.dp), shape = RoundedCornerShape(8.dp)) { Text("Solicitar Troca ou Ajuste", color = Color(0xFF45617D), fontSize = 10.sp) }
+            }
+            Spacer(Modifier.height(14.dp)); ManagerSearch("Buscar histórico de registros..."); Spacer(Modifier.height(10.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Hoje", "Últimos 7 dias", "Pendências", "Validados").forEachIndexed { index, label -> Text(label, color = if (index == 0) Color.White else Color(0xFF5B7895), fontSize = 9.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (index == 0) Color(0xFF1475D1) else Color(0xFFEAF2F9)).padding(horizontal = 12.dp, vertical = 7.dp)) } }
+            Spacer(Modifier.height(14.dp)); Row { Text("◷  Histórico recente", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Ver histórico completo  →", color = Color(0xFF1680C6), fontSize = 9.sp) }; Spacer(Modifier.height(9.dp))
+            listOf("Hospital Santa Clara" to "Em andamento", "Hospital Santa Clara" to "Concluído", "Hospital Memorial" to "Concluído").forEach { TimeHistoryCard(it.first, it.second); Spacer(Modifier.height(8.dp)) }; Spacer(Modifier.height(12.dp))
+        }
+        ManagerBottomNavigation(InstitutionScreen.TimeRecord, onNavigate)
+    }
+}
+
+@Composable
+private fun TimeSummary(title: String, main: String, subtitle: String, color: Color) { Column(modifier = Modifier.width(96.dp).height(99.dp).clip(RoundedCornerShape(11.dp)).background(color).border(1.dp, Color(0xFFD9E6ED), RoundedCornerShape(11.dp)).padding(10.dp)) { Text("◷", color = Color(0xFF1687CD), fontSize = 16.sp); Spacer(Modifier.height(6.dp)); Text(title, color = Color(0xFF607A94), fontSize = 8.sp); Text(main, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = if (title == "Check-in (Entrada)") Color(0xFF129862) else Color(0xFF54708A), fontSize = 8.sp, lineHeight = 10.sp) } }
+
+@Composable
+private fun TimeHistoryCard(hospital: String, status: String) { Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(Color.White).border(1.dp, Color(0xFFE1E9EF), RoundedCornerShape(11.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Box(modifier = Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (status == "Concluído") Color(0xFFE1F9ED) else Color(0xFFE7F2FF)), contentAlignment = Alignment.Center) { Text(if (status == "Concluído") "✓" else "◷", color = if (status == "Concluído") Color(0xFF10A36C) else Color(0xFF2085CF), fontSize = 17.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(10.dp)); Column(modifier = Modifier.weight(1f)) { Text(hospital, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text("UTI Adulto", color = Color(0xFF6A8199), fontSize = 9.sp); Text("24/10 • Entrada: 18:52 | Saída: —", color = Color(0xFF8EA1B5), fontSize = 8.sp); Text(if (status == "Concluído") "Entrada: 06:55 • Saída: 19:08 (12h 13m)" else "✓ Check-in via GPS validado", color = Color(0xFF0C9D68), fontSize = 8.sp) }; Text(status, color = if (status == "Concluído") Color(0xFF0C9D68) else Color(0xFF2386CF), fontSize = 8.sp, fontWeight = FontWeight.Bold); Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF7C92A8), modifier = Modifier.size(17.dp)) } }
 
 @Composable
 private fun ProfileScreen(perfil: PerfilUsuario, onBack: () -> Unit, onTabSelected: (String) -> Unit) {
