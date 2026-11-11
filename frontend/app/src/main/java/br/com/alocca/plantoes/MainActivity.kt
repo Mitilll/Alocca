@@ -538,6 +538,7 @@ private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 
+
 /** Tela isolada para inspeção no Android Studio, sem login ou backend. */
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 393, heightDp = 852)
 @Composable
