@@ -350,43 +350,49 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     lineHeight = 16.sp,
                 )
                 Spacer(Modifier.height(16.dp))
-                Text("Dados de plantões e financeiro ainda não disponíveis.", color = Muted, fontSize = 13.sp)
-                Spacer(Modifier.height(18.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                        .background(Color.White).border(1.dp, Color(0xFFD7E2E1), RoundedCornerShape(8.dp))
-                        .padding(16.dp),
-                ) {
-                    Text("Sua conta", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
-                    InfoRow("Nome", perfil.nome)
-                    InfoRow("E-mail", perfil.email)
-                    InfoRow("Perfil", perfil.tipoDescricao)
-                    InfoRow("Conta", perfil.statusDescricao)
-                    if (perfil.crm != null) InfoRow("CRM", listOfNotNull(perfil.crm, perfil.ufCrm).joinToString(" / "))
-                    if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
-                    if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) {
-                        InfoRow("Motivo", perfil.motivoRejeicao)
+                if (activeTab == "Plantões") {
+                    Text("Plantões", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    Text("A lista de plantões e candidaturas estará disponível quando integrada ao serviço.", color = Muted, fontSize = 13.sp)
+                } else {
+                    Text("Dados de plantões e financeiro ainda não disponíveis.", color = Muted, fontSize = 13.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(Color.White).border(1.dp, Color(0xFFD7E2E1), RoundedCornerShape(8.dp))
+                            .padding(16.dp),
+                    ) {
+                        Text("Sua conta", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        InfoRow("Nome", perfil.nome)
+                        InfoRow("E-mail", perfil.email)
+                        InfoRow("Perfil", perfil.tipoDescricao)
+                        InfoRow("Conta", perfil.statusDescricao)
+                        if (perfil.crm != null) InfoRow("CRM", listOfNotNull(perfil.crm, perfil.ufCrm).joinToString(" / "))
+                        if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                        if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) {
+                            InfoRow("Motivo", perfil.motivoRejeicao)
+                        }
                     }
+                    Spacer(Modifier.height(18.dp))
+                    Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    QuickActions { notice = "$it estará disponível em breve." }
+                    if (notice.isNotBlank()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            notice,
+                            color = DeepTeal,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE1F3F4))
+                                .padding(11.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(22.dp))
                 }
-                Spacer(Modifier.height(18.dp))
-                Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(10.dp))
-                QuickActions { notice = "$it estará disponível em breve." }
-                if (notice.isNotBlank()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        notice,
-                        color = DeepTeal,
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE1F3F4))
-                            .padding(11.dp),
-                    )
-                }
-                Spacer(Modifier.height(22.dp))
             }
                 HomeBottomNavigation(activeTab, onSelected = { selected ->
                     activeTab = selected
@@ -965,9 +971,9 @@ private fun cpfValido(cpf: String): Boolean {
 // RN05 — de 8 a 128 caracteres com maiúscula, minúscula e número.
 private fun senhaAtendeRn05(senha: String): Boolean =
     senha.length in 8..128 &&
-        senha.any(Char::isLowerCase) &&
-        senha.any(Char::isUpperCase) &&
-        senha.any(Char::isDigit)
+        senha.any { it in 'a'..'z' } &&
+        senha.any { it in 'A'..'Z' } &&
+        senha.any { it in '0'..'9' }
 
 private class SufixoVisualTransformation(private val sufixo: String) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
