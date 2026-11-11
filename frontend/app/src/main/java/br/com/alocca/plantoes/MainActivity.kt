@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedVisibility
@@ -23,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -51,8 +53,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -289,11 +294,12 @@ private fun AuthApp() {
                             loading = loading,
                             feedback = feedback,
                             feedbackSuccess = feedbackSuccess,
-                            onSubmit = { nome, email, crm, uf, senha ->
+                            onSubmit = { nome, email, cpf, crm, uf, senha ->
                                 val payload = JSONObject().put("nome", nome.trim()).put("email", email.trim())
-                                    .put("senha", senha).put("crm", crm.trim()).put("uf_crm", uf.trim().uppercase())
+                                    .put("cpf", cpf).put("senha", senha)
+                                    .put("crm", crm.trim()).put("uf_crm", uf.trim().uppercase())
                                 submit("auth/register/medico", payload) {
-                                    feedback = "Cadastro enviado. Você já pode entrar."
+                                    feedback = "Cadastro enviado. A validação do seu CRM é manual; você já pode entrar."
                                     feedbackSuccess = true
                                     screen = Screen.Login
                                 }
@@ -319,45 +325,30 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var quickActionScreen by remember { mutableStateOf<QuickActionScreen?>(null) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    BackHandler(enabled = quickActionScreen != null || activeTab != "Início") {
+        if (quickActionScreen != null) quickActionScreen = null else activeTab = "Início"
+    }
+
+    val onQuickTabSelected: (String) -> Unit = { selected ->
+        quickActionScreen = null
+        activeTab = selected
+    }
     when (quickActionScreen) {
-        QuickActionScreen.Security -> {
-            SecurityScreen(
-                onBack = { quickActionScreen = null },
-                onTabSelected = { selected ->
-                    if (selected == "Início") quickActionScreen = null else notice = "$selected estará disponível em breve."
-                },
-            )
-            return
-        }
-        QuickActionScreen.Calendar -> {
-            CalendarScreen(
-                onBack = { quickActionScreen = null },
-                onTabSelected = { selected ->
-                    if (selected == "Início") quickActionScreen = null else notice = "$selected estará disponível em breve."
-                },
-            )
-            return
-        }
-        QuickActionScreen.Profile -> {
-            ProfileScreen(
-                perfil = perfil,
-                onBack = { quickActionScreen = null },
-                onTabSelected = { selected ->
-                    if (selected == "Início") quickActionScreen = null else notice = "$selected estará disponível em breve."
-                },
-            )
-            return
-        }
-        QuickActionScreen.Workplaces -> {
-            WorkplacesScreen(
-                onBack = { quickActionScreen = null },
-                onTabSelected = { selected ->
-                    if (selected == "Início") quickActionScreen = null else notice = "$selected estará disponível em breve."
-                },
-            )
-            return
-        }
+        QuickActionScreen.Security -> { SecurityScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Calendar -> { CalendarScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Profile -> { ProfileScreen(perfil = perfil, onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Workplaces -> { WorkplacesScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
         null -> Unit
+    }
+
+    if (activeTab == "Financeiro") {
+        FinanceScreen(onTabSelected = { activeTab = it }, onLogout = onLogout)
+        return
+    }
+
+    if (activeTab == "Configurações") {
+        SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it }, onLogout = onLogout)
+        return
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
@@ -379,7 +370,7 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     .padding(horizontal = 20.dp),
             ) {
                 Spacer(Modifier.height(19.dp))
-                Text("Olá, Dr. $primeiroNome", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Olá, $primeiroNome", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(3.dp))
                 Text(
                     "Encontre plantões, acompanhe suas\natividades e gerencie seus plantões.",
@@ -388,41 +379,57 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     lineHeight = 16.sp,
                 )
                 Spacer(Modifier.height(16.dp))
-                QuickSummary()
-                Spacer(Modifier.height(18.dp))
-                SectionTitle("Próximos plantões", "Ver todos") { notice = "Em breve você poderá ver todos os plantões." }
-                Spacer(Modifier.height(9.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(18.dp))
-                Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(10.dp))
-                QuickActions { action ->
-                    when (action) {
-                        "Segurança" -> quickActionScreen = QuickActionScreen.Security
-                        "Calendário" -> quickActionScreen = QuickActionScreen.Calendar
-                        "Locais de trabalho" -> quickActionScreen = QuickActionScreen.Workplaces
-                        "Seu perfil" -> quickActionScreen = QuickActionScreen.Profile
-                        else -> notice = "$action estará disponível em breve."
+                if (activeTab == "Plantões") {
+                    Text("Plantões", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    Text("A lista de plantões e candidaturas estará disponível quando integrada ao serviço.", color = Muted, fontSize = 13.sp)
+                } else {
+                    Text("Dados de plantões e financeiro ainda não disponíveis.", color = Muted, fontSize = 13.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(Color.White).border(1.dp, Color(0xFFD7E2E1), RoundedCornerShape(8.dp))
+                            .padding(16.dp),
+                    ) {
+                        Text("Sua conta", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        InfoRow("Nome", perfil.nome)
+                        InfoRow("E-mail", perfil.email)
+                        InfoRow("Perfil", perfil.tipoDescricao)
+                        InfoRow("Conta", perfil.statusDescricao)
+                        if (perfil.crm != null) InfoRow("CRM", listOfNotNull(perfil.crm, perfil.ufCrm).joinToString(" / "))
+                        if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                        if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) {
+                            InfoRow("Motivo", perfil.motivoRejeicao)
+                        }
                     }
+                    Spacer(Modifier.height(18.dp))
+                    Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    QuickActions { action ->
+                        quickActionScreen = when (action) {
+                            "Segurança" -> QuickActionScreen.Security
+                            "Calendário" -> QuickActionScreen.Calendar
+                            "Locais de trabalho" -> QuickActionScreen.Workplaces
+                            "Seu perfil" -> QuickActionScreen.Profile
+                            else -> null
+                        }
+                    }
+                    if (notice.isNotBlank()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            notice,
+                            color = DeepTeal,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE1F3F4))
+                                .padding(11.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(22.dp))
                 }
-                if (notice.isNotBlank()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        notice,
-                        color = DeepTeal,
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE1F3F4))
-                            .padding(11.dp),
-                    )
-                }
-                Spacer(Modifier.height(22.dp))
             }
                 HomeBottomNavigation(activeTab, onSelected = { selected ->
                     activeTab = selected
@@ -582,11 +589,11 @@ private fun SecurityScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) 
                 Spacer(Modifier.height(4.dp))
                 Text("Use uma senha forte, diferente das suas outras contas.", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(14.dp))
-                AuthField("Senha atual", currentPassword, { currentPassword = it }, "Digite sua senha atual", Icons.Default.Lock, KeyboardType.Password, true, showPasswords) { showPasswords = !showPasswords }
+                AuthField("Senha atual", currentPassword, { currentPassword = it }, "Digite sua senha atual", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
                 Spacer(Modifier.height(12.dp))
-                AuthField("Nova senha", newPassword, { newPassword = it }, "Mínimo de 8 caracteres", Icons.Default.Lock, KeyboardType.Password, true, showPasswords) { showPasswords = !showPasswords }
+                AuthField("Nova senha", newPassword, { newPassword = it }, "Mínimo de 8 caracteres", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
                 Spacer(Modifier.height(12.dp))
-                AuthField("Confirmar nova senha", confirmPassword, { confirmPassword = it }, "Repita a nova senha", Icons.Default.Lock, KeyboardType.Password, true, showPasswords) { showPasswords = !showPasswords }
+                AuthField("Confirmar nova senha", confirmPassword, { confirmPassword = it }, "Repita a nova senha", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
                 Spacer(Modifier.height(14.dp))
                 PrimaryButton("Atualizar senha") {
                     message = if (newPassword.length >= 8 && newPassword == confirmPassword && currentPassword.isNotBlank()) {
@@ -982,6 +989,158 @@ private fun ProfileEditorCard(title: String, fields: List<Pair<String, String>>,
     }
 }
 
+@Composable
+private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+    val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "" }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Configurações", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier.size(40.dp).clickable { notificationsOpen = !notificationsOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                ) {
+                    SettingsProfileCard(primeiroNome, perfil.crm, perfil.ufCrm)
+                    Spacer(Modifier.height(10.dp))
+                    SettingsCard {
+                        Column(Modifier.padding(12.dp)) {
+                            InfoRow("Nome", perfil.nome)
+                            InfoRow("E-mail", perfil.email)
+                            InfoRow("Perfil", perfil.tipoDescricao)
+                            InfoRow("Conta", perfil.statusDescricao)
+                            if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                            if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) InfoRow("Motivo", perfil.motivoRejeicao)
+                        }
+                    }
+                    Spacer(Modifier.height(17.dp))
+                    SettingsSectionTitle("Conta e segurança")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        SettingsNavigationRow(Icons.Default.PersonOutline, "Dados pessoais", "Atualize suas informações.", Color(0xFFE0F4FF), Color(0xFF1683BF))
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsNavigationRow(Icons.Default.Lock, "Segurança e privacidade", "Senha, autenticação e privacidade.", Color(0xFFE0F8EF), Color(0xFF0C9B72))
+                    }
+                    Spacer(Modifier.height(15.dp))
+                    SettingsSectionTitle("Preferências do aplicativo")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        Text("Preferências de notificações indisponíveis no momento.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
+                    }
+                    Spacer(Modifier.height(19.dp))
+                    SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false, onClick = onLogout) }
+                    Spacer(Modifier.height(20.dp))
+                }
+                HomeBottomNavigation("Configurações", onSelected = onTabSelected)
+            }
+
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 46.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsProfileCard(name: String, crm: String?, uf: String?) {
+    SettingsCard {
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD9F3FC)),
+                contentAlignment = Alignment.Center,
+            ) { Text(name.take(2).uppercase(), color = DeepTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            Spacer(Modifier.width(13.dp))
+            Column {
+                Text(name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("CRM ${crm.orEmpty()}-${uf.orEmpty()}", color = Muted, fontSize = 11.sp)
+
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionTitle(text: String) = Text(text, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(10.dp)).background(Color.White),
+        content = content,
+    )
+}
+
+@Composable
+private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, showDescription: Boolean = true, onClick: () -> Unit = {}) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingsIcon(icon, background, tint)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = if (showDescription) Navy else tint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            if (showDescription) Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = Navy, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, background: Color, tint: Color) {
+    Box(modifier = Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(background), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(19.dp))
+    }
+}
+
+
+
+
+@Composable
+private fun FinanceScreen(onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                HomeHeader(
+                    onNotification = { notificationsOpen = !notificationsOpen },
+                    onLogout = onLogout,
+                )
+                Text("Financeiro", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 20.dp)) {
+                    Text("Dados financeiros indisponíveis no momento.", color = Muted, fontSize = 13.sp)
+                }
+                HomeBottomNavigation("Financeiro", onSelected = onTabSelected)
+            }
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) {
+                NotificationsPanel(onClose = { notificationsOpen = false })
+            }
+        }
+    }
+}
+
+
 /** Tela isolada para inspeção no Android Studio, sem login ou backend. */
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 393, heightDp = 852)
 @Composable
@@ -1050,24 +1209,7 @@ private fun HomeHeader(onNotification: () -> Unit, onLogout: () -> Unit) {
                 tint = Navy,
                 modifier = Modifier.size(27.dp),
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-1).dp, y = 2.dp)
-                    .size(16.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Cyan),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "3",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    lineHeight = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-            }
+
         }
     }
 }
@@ -1082,17 +1224,9 @@ private fun NotificationsPanel(onClose: () -> Unit) {
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E5E5)),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Notificações", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Text("3 novas", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
+            Text("Notificações", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(15.dp))
-            NotificationItem(Icons.Default.EventNote, "Plantão confirmado", "Hospital Santa Clara • Sex. 19h")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccessTime, "Confirmação pendente", "Responda ao plantão do Hospital Santa Lúcia")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccountBalanceWallet, "Pagamento recebido", "R$ 2.459,00 disponível em seu saldo")
+            Text("Notificações ainda não disponíveis.", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(16.dp))
             Text(
                 "Fechar",
@@ -1540,37 +1674,104 @@ private fun LoginForm(
     }
 }
 
+// Máscara visual do CRM no cadastro: exibe "123456-SP" anexando a UF ao número.
+// O valor do campo guarda só os dígitos (a API continua recebendo crm e uf_crm
+// separados); o sufixo é puramente visual, via VisualTransformation.
+private const val CRM_DIGITOS_MAX = 20
+private const val CPF_DIGITOS = 11
+
+// RN02 — CPF validado pelos dígitos verificadores; RN04 — o campo guarda só
+// dígitos, então a higienização já está garantida.
+private fun cpfValido(cpf: String): Boolean {
+    if (cpf.length != CPF_DIGITOS || cpf.all { it == cpf.first() }) return false
+    return listOf(9, 10).all { posicao ->
+        val soma = cpf.take(posicao).mapIndexed { indice, caractere ->
+            caractere.digitToInt() * (posicao + 1 - indice)
+        }.sum()
+        val digito = ((soma * 10) % 11).let { if (it == 10) 0 else it }
+        cpf[posicao].digitToInt() == digito
+    }
+}
+
+// RN05 — de 8 a 128 caracteres com maiúscula, minúscula e número.
+private fun senhaAtendeRn05(senha: String): Boolean =
+    senha.length in 8..128 &&
+        senha.any { it in 'a'..'z' } &&
+        senha.any { it in 'A'..'Z' } &&
+        senha.any { it in '0'..'9' }
+
+private class SufixoVisualTransformation(private val sufixo: String) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (sufixo.isEmpty() || text.isEmpty()) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+        val formatado = AnnotatedString(text.text + sufixo)
+        val mapeamento = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int = offset.coerceAtMost(text.length)
+            override fun transformedToOriginal(offset: Int): Int = offset.coerceAtMost(text.length)
+        }
+        return TransformedText(formatado, mapeamento)
+    }
+}
+
 @Composable
 private fun RegisterForm(
     onLogin: () -> Unit,
     loading: Boolean,
     feedback: String,
     feedbackSuccess: Boolean,
-    onSubmit: (String, String, String, String, String) -> Unit
+    onSubmit: (String, String, String, String, String, String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var crm by remember { mutableStateOf("") }
+    var cpf by remember { mutableStateOf("") } // apenas dígitos
+    var crm by remember { mutableStateOf("") } // apenas dígitos
     var uf by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf("") }
 
+    // CRM guarda só dígitos; a UF aparece anexada visualmente ("123456-SP").
+    val crmMascara = remember(uf) { SufixoVisualTransformation(if (uf.length == 2) "-$uf" else "") }
+
     AuthField("Nome completo", name, { name = it }, "Seu nome", Icons.Default.PersonOutline, KeyboardType.Text)
     Spacer(Modifier.height(16.dp))
     AuthField("E-mail", email, { email = it }, "Seu@email.com", Icons.Default.Email, KeyboardType.Email)
     Spacer(Modifier.height(16.dp))
-    AuthField("CRM", crm, { crm = it }, "Apenas números", Icons.Default.PersonOutline, KeyboardType.Number)
+    AuthField(
+        "CPF",
+        cpf,
+        { entrada -> cpf = entrada.filter { it.isDigit() }.take(CPF_DIGITOS) },
+        "11 dígitos",
+        Icons.Default.PersonOutline,
+        KeyboardType.Number
+    )
     Spacer(Modifier.height(16.dp))
-    AuthField("UF do CRM", uf, { uf = it.uppercase().take(2) }, "Ex.: SP", Icons.Default.PersonOutline, KeyboardType.Text)
+    AuthField(
+        "CRM",
+        crm,
+        { entrada -> crm = entrada.filter { it.isDigit() } },
+        "Ex.: 123456",
+        Icons.Default.PersonOutline,
+        KeyboardType.Number,
+        visualTransformation = crmMascara
+    )
+    Spacer(Modifier.height(16.dp))
+    AuthFieldDropdown(
+        "UF do CRM",
+        uf,
+        UF_OPCOES,
+        selecionar = { uf = it },
+        icon = Icons.Default.PersonOutline
+    )
     Spacer(Modifier.height(16.dp))
     AuthField(
         "Senha", password, { password = it }, "Crie uma senha segura", Icons.Default.Lock,
         KeyboardType.Password, password = true, visible = visible, onToggle = { visible = !visible }
     )
     Text(
-        "Use de 8 a 128 caracteres.",
+        "Use de 8 a 128 caracteres, com maiúscula, minúscula e número.",
         color = Color(0xFFA9B5B4), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
         modifier = Modifier.fillMaxWidth().padding(start = 3.dp, top = 3.dp)
     )
@@ -1579,6 +1780,11 @@ private fun RegisterForm(
         "Confirme sua senha", confirm, { confirm = it }, "Confirme sua senha", Icons.Default.Lock,
         KeyboardType.Password, password = true, visible = visible, onToggle = { visible = !visible }
     )
+    Text(
+        "Após o cadastro, seu CRM passa por análise manual do time Alocca.",
+        color = Color(0xFFA9B5B4), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.fillMaxWidth().padding(start = 3.dp, top = 3.dp)
+    )
     Spacer(Modifier.height(14.dp))
     if (formError.isNotBlank()) FeedbackText(formError, false)
     else if (feedback.isNotBlank()) FeedbackText(feedback, feedbackSuccess)
@@ -1586,18 +1792,117 @@ private fun RegisterForm(
         formError = when {
             name.trim().length < 2 -> "Informe seu nome completo (mínimo 2 caracteres)."
             !email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) -> "Informe um e-mail válido."
-            crm.isBlank() || !crm.matches(Regex("^\\d{1,20}$")) -> "O CRM deve conter apenas números."
-            uf !in setOf("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO") -> "Informe uma UF válida para o CRM."
-            password.length < 8 -> "A senha deve ter pelo menos 8 caracteres."
-            password.length > 128 -> "A senha deve ter no máximo 128 caracteres."
+            !cpfValido(cpf) -> "Informe um CPF válido (11 dígitos)."
+            crm.isBlank() -> "Informe o número do CRM."
+            crm.length > CRM_DIGITOS_MAX -> "O CRM deve ter no máximo 20 dígitos."
+            uf !in UF_OPCOES.map(Pair<String, String>::first) -> "Informe uma UF válida para o CRM."
+            !senhaAtendeRn05(password) -> "A senha deve ter de 8 a 128 caracteres, com maiúscula, minúscula e número."
             password != confirm -> "As senhas não coincidem."
             else -> ""
         }
-        if (formError.isEmpty()) onSubmit(name, email, crm, uf, password)
+        if (formError.isEmpty()) onSubmit(name, email, cpf, crm, uf, password)
     }
     Row(Modifier.fillMaxWidth().padding(top = 13.dp), horizontalArrangement = Arrangement.Center) {
         Text("Já tem uma conta? ", color = Muted, fontSize = 13.sp)
         Text("Faça Login", Modifier.clickable(onClick = onLogin), color = Border, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
+}
+
+// UFs com conselho regional (27), ordem alfabética por sigla.
+private val UF_OPCOES: List<Pair<String, String>> = listOf(
+    "AC" to "Acre", "AL" to "Alagoas", "AP" to "Amapá", "AM" to "Amazonas",
+    "BA" to "Bahia", "CE" to "Ceará", "DF" to "Distrito Federal", "ES" to "Espírito Santo",
+    "GO" to "Goiás", "MA" to "Maranhão", "MT" to "Mato Grosso", "MS" to "Mato Grosso do Sul",
+    "MG" to "Minas Gerais", "PA" to "Pará", "PB" to "Paraíba", "PR" to "Paraná",
+    "PE" to "Pernambuco", "PI" to "Piauí", "RJ" to "Rio de Janeiro", "RN" to "Rio Grande do Norte",
+    "RS" to "Rio Grande do Sul", "RO" to "Rondônia", "RR" to "Roraima", "SC" to "Santa Catarina",
+    "SP" to "São Paulo", "SE" to "Sergipe", "TO" to "Tocantins",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AuthFieldDropdown(
+    label: String,
+    value: String,
+    opcoes: List<Pair<String, String>>,
+    selecionar: (String) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
+    var expandido by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expandido,
+        onExpandedChange = { expandido = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CanvasColor)
+                    .border(width = 1.dp, color = Border, shape = RoundedCornerShape(8.dp))
+                    .padding(horizontal = 11.dp)
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Border,
+                    modifier = Modifier.size(19.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = value.ifBlank { "UF" },
+                    color = if (value.isBlank()) Color(0xFFAAB7B6) else Navy,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Abrir lista de UFs",
+                    tint = Border,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Text(
+                text = label,
+                color = Border,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 14.dp)
+                    .background(CanvasColor)
+                    .padding(horizontal = 4.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expandido,
+                onDismissRequest = { expandido = false },
+                modifier = Modifier.exposedDropdownSize()
+            ) {
+                opcoes.forEach { (sigla, nome) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text("$nome ($sigla)", color = Navy, fontSize = 13.sp, maxLines = 1)
+                        },
+                        onClick = {
+                            selecionar(sigla)
+                            expandido = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1611,7 +1916,8 @@ private fun AuthField(
     keyboard: KeyboardType,
     password: Boolean = false,
     visible: Boolean = false,
-    onToggle: (() -> Unit)? = null
+    onToggle: (() -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     // Campo desenhado manualmente para reproduzir o protótipo:
     // borda fina, rótulo sobre a borda e placeholder visível.
@@ -1655,7 +1961,7 @@ private fun AuthField(
                 visualTransformation = if (password && !visible) {
                     PasswordVisualTransformation()
                 } else {
-                    VisualTransformation.None
+                    visualTransformation
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
                 decorationBox = { innerTextField ->
