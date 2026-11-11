@@ -521,9 +521,9 @@ private fun cpfValido(cpf: String): Boolean {
 // RN05 — de 8 a 128 caracteres com maiúscula, minúscula e número.
 private fun senhaAtendeRn05(senha: String): Boolean =
     senha.length in 8..128 &&
-        senha.any(Char::isLowerCase) &&
-        senha.any(Char::isUpperCase) &&
-        senha.any(Char::isDigit)
+        senha.any { it in 'a'..'z' } &&
+        senha.any { it in 'A'..'Z' } &&
+        senha.any { it in '0'..'9' }
 
 private class SufixoVisualTransformation(private val sufixo: String) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
