@@ -351,15 +351,16 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     lineHeight = 16.sp,
                 )
                 Spacer(Modifier.height(16.dp))
-                QuickSummary()
+                Text("Sua conta", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                InfoRow("Nome", perfil.nome)
+                InfoRow("E-mail", perfil.email)
+                InfoRow("Perfil", perfil.tipoDescricao)
+                InfoRow("Conta", perfil.statusDescricao)
+                if (perfil.crm != null) InfoRow("CRM", listOfNotNull(perfil.crm, perfil.ufCrm).joinToString(" / "))
+                if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) InfoRow("Motivo", perfil.motivoRejeicao)
                 Spacer(Modifier.height(18.dp))
-                SectionTitle("Próximos plantões", "Ver todos") { notice = "Em breve você poderá ver todos os plantões." }
-                Spacer(Modifier.height(9.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { shift -> selectedShift = shift }
+                Text("Dados de plantões indisponíveis no momento.", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(18.dp))
                 Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
@@ -420,30 +421,14 @@ private fun FinanceScreen(onTabSelected: (String) -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
-                        Box(
-                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 2.dp).size(17.dp)
-                                .clip(androidx.compose.foundation.shape.CircleShape).background(Cyan),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                        }
+
                     }
                 }
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 27.dp),
                 ) {
                     Spacer(Modifier.height(10.dp))
-                    FinancialSummary()
-                    Spacer(Modifier.height(17.dp))
-                    Text("A receber", color = Color(0xFF20252B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(11.dp))
-                    ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { selectedShift = it }
-                    Spacer(Modifier.height(10.dp))
-                    ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { selectedShift = it }
-                    Spacer(Modifier.height(10.dp))
-                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
-                    Spacer(Modifier.height(10.dp))
-                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    Text("Dados financeiros indisponíveis no momento.", color = Muted, fontSize = 13.sp)
                     Spacer(Modifier.height(24.dp))
                 }
                 HomeBottomNavigation("Financeiro", onSelected = onTabSelected)
@@ -556,24 +541,7 @@ private fun HomeHeader(onNotification: () -> Unit, onLogout: () -> Unit) {
                 tint = Navy,
                 modifier = Modifier.size(27.dp),
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-1).dp, y = 2.dp)
-                    .size(16.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Cyan),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "3",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    lineHeight = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-            }
+
         }
     }
 }
@@ -591,14 +559,9 @@ private fun NotificationsPanel(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Notificações", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Text("3 novas", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(15.dp))
-            NotificationItem(Icons.Default.EventNote, "Plantão confirmado", "Hospital Santa Clara • Sex. 19h")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccessTime, "Confirmação pendente", "Responda ao plantão do Hospital Santa Lúcia")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccountBalanceWallet, "Pagamento recebido", "R$ 2.459,00 disponível em seu saldo")
+            Text("Notificações indisponíveis no momento.", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(16.dp))
             Text(
                 "Fechar",
