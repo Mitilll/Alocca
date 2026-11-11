@@ -107,6 +107,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Screen { Login, Register }
+private enum class QuickActionScreen { Security, Calendar, Profile, Workplaces }
 
 @Composable
 private fun AuthApp() {
@@ -321,9 +322,24 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notice by remember { mutableStateOf("") }
     var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
     var notificationsOpen by remember { mutableStateOf(false) }
+    var quickActionScreen by remember { mutableStateOf<QuickActionScreen?>(null) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
-    BackHandler(enabled = activeTab != "Início") { activeTab = "Início" }
+    BackHandler(enabled = quickActionScreen != null || activeTab != "Início") {
+        if (quickActionScreen != null) quickActionScreen = null else activeTab = "Início"
+    }
+
+    val onQuickTabSelected: (String) -> Unit = { selected ->
+        quickActionScreen = null
+        activeTab = selected
+    }
+    when (quickActionScreen) {
+        QuickActionScreen.Security -> { SecurityScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Calendar -> { CalendarScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Profile -> { ProfileScreen(perfil = perfil, onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Workplaces -> { WorkplacesScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        null -> Unit
+    }
 
     if (activeTab == "Financeiro") {
         FinanceScreen(onTabSelected = { activeTab = it }, onLogout = onLogout)
@@ -390,7 +406,15 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     Spacer(Modifier.height(18.dp))
                     Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
-                    QuickActions { notice = "$it estará disponível em breve." }
+                    QuickActions { action ->
+                        quickActionScreen = when (action) {
+                            "Segurança" -> QuickActionScreen.Security
+                            "Calendário" -> QuickActionScreen.Calendar
+                            "Locais de trabalho" -> QuickActionScreen.Workplaces
+                            "Seu perfil" -> QuickActionScreen.Profile
+                            else -> null
+                        }
+                    }
                     if (notice.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
                         Text(
@@ -425,6 +449,542 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
             selectedShift?.let { shift ->
                 ShiftDetailsDialog(shift = shift, onDismiss = { selectedShift = null })
             }
+        }
+    }
+}
+
+@Composable
+private fun CalendarScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) {
+    var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
+    var notificationsOpen by remember { mutableStateOf(false) }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(54.dp).border(1.dp, Color(0xFFE0E5E5)).padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("‹", color = Navy, fontSize = 31.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 8.dp))
+                    Text("Meu calendário", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(modifier = Modifier.size(38.dp).clickable { notificationsOpen = !notificationsOpen }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(23.dp))
+                        Box(modifier = Modifier.align(Alignment.TopEnd).offset(y = 2.dp).size(17.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Cyan), contentAlignment = Alignment.Center) {
+                            Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+                    Spacer(Modifier.height(17.dp))
+                    Text("Seu calendário", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(3.dp))
+                    Text("Personalize o seu calendário conforme seus compromissos.", color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(12.dp))
+                    CalendarMonthCard()
+                    Spacer(Modifier.height(12.dp))
+                    Text("Sexta-feira, 20 de junho", color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(7.dp))
+                    ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(7.dp))
+                    ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { selectedShift = it }
+                    Spacer(Modifier.height(7.dp))
+                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(7.dp))
+                    ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    Spacer(Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Color(0xFFD9F3FC)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Encontrou um novo plantão?", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Adicione a sua agenda", color = Navy, fontSize = 10.sp)
+                        }
+                        Text("Adicionar Plantão", color = Color(0xFF006EC6), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { })
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
+                HomeBottomNavigation("Plantões", onSelected = onTabSelected)
+            }
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 48.dp, end = 15.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+            selectedShift?.let { ShiftDetailsDialog(it, onDismiss = { selectedShift = null }) }
+        }
+    }
+}
+
+@Composable
+private fun CalendarMonthCard() {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(11.dp)).padding(15.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("‹", color = Muted, fontSize = 28.sp)
+            Spacer(Modifier.weight(1f))
+            Text("Junho 2024", color = Color(0xFF2D3137), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text("›", color = Muted, fontSize = 28.sp)
+        }
+        Spacer(Modifier.height(13.dp))
+        CalendarWeekRow(listOf("D", "S", "T", "Q", "Q", "S", "S"), isHeader = true)
+        CalendarWeekRow(listOf("", "", "", "", "", "1", "2"))
+        CalendarWeekRow(listOf("3", "4", "5", "6", "7", "8", "9"), dotAt = 0)
+        CalendarWeekRow(listOf("10", "11", "12", "13", "14", "15", "16"), dotAt = 6, dotColor = Color(0xFFF49A19))
+        CalendarWeekRow(listOf("17", "18", "19", "20", "21", "22", "23"), selectedAt = 3, dotAt = 3)
+        CalendarWeekRow(listOf("24", "25", "26", "27", "28", "29", "30"))
+        Spacer(Modifier.height(13.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CalendarLegend(Color(0xFF006EC6), "Confirmado")
+            CalendarLegend(Color(0xFFF49A19), "Pendente")
+            CalendarLegend(Color(0xFF18B66D), "Disponível")
+        }
+    }
+}
+
+@Composable
+private fun CalendarWeekRow(days: List<String>, isHeader: Boolean = false, selectedAt: Int = -1, dotAt: Int = -1, dotColor: Color = Color(0xFF18B66D)) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        days.forEachIndexed { index, day ->
+            Column(modifier = Modifier.width(30.dp).height(34.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text(day, color = if (isHeader) Muted else Color(0xFF2D3137), fontSize = if (isHeader) 9.sp else 12.sp, fontWeight = if (index == selectedAt) FontWeight.Bold else FontWeight.Normal, modifier = if (index == selectedAt) Modifier.clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFE2F0FF)).padding(horizontal = 6.dp, vertical = 3.dp) else Modifier)
+                if (index == dotAt) Box(modifier = Modifier.size(4.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dotColor)) else Spacer(Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarLegend(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color))
+        Spacer(Modifier.width(3.dp))
+        Text(label, color = Color(0xFF2D3137), fontSize = 9.sp)
+    }
+}
+
+@Composable
+private fun SecurityScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) {
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var showPasswords by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            QuickActionHeader("Segurança", onBack)
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp),
+            ) {
+                Spacer(Modifier.height(22.dp))
+                Text("Segurança da conta", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("Mantenha o acesso à sua conta protegido.", color = Muted, fontSize = 13.sp)
+                Spacer(Modifier.height(18.dp))
+                SecurityStatusCard()
+                Spacer(Modifier.height(22.dp))
+                Text("Alterar senha", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("Use uma senha forte, diferente das suas outras contas.", color = Muted, fontSize = 11.sp)
+                Spacer(Modifier.height(14.dp))
+                AuthField("Senha atual", currentPassword, { currentPassword = it }, "Digite sua senha atual", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
+                Spacer(Modifier.height(12.dp))
+                AuthField("Nova senha", newPassword, { newPassword = it }, "Mínimo de 8 caracteres", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
+                Spacer(Modifier.height(12.dp))
+                AuthField("Confirmar nova senha", confirmPassword, { confirmPassword = it }, "Repita a nova senha", Icons.Default.Lock, KeyboardType.Password, true, showPasswords, onToggle = { showPasswords = !showPasswords })
+                Spacer(Modifier.height(14.dp))
+                PrimaryButton("Atualizar senha") {
+                    message = if (newPassword.length >= 8 && newPassword == confirmPassword && currentPassword.isNotBlank()) {
+                        "Senha atualizada com sucesso."
+                    } else "Preencha os campos e confirme uma senha com ao menos 8 caracteres."
+                }
+                if (message.isNotBlank()) FeedbackText(message, message.startsWith("Senha atualizada"))
+                Spacer(Modifier.height(24.dp))
+                Text("Atividade recente", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(9.dp))
+                SecurityInfoRow("Sessão atual", "São Paulo, SP • agora", Icons.Default.PersonOutline)
+                Spacer(Modifier.height(8.dp))
+                SecurityInfoRow("Última alteração de senha", "Há 3 meses", Icons.Default.Lock)
+                Spacer(Modifier.height(22.dp))
+            }
+            HomeBottomNavigation("Configurações", onSelected = onTabSelected)
+        }
+    }
+}
+
+@Composable
+private fun QuickActionHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(56.dp).border(1.dp, Color(0xFFE0E5E5)).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("‹", color = Navy, fontSize = 30.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 9.dp))
+        Text(title, color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SecurityStatusCard() {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFFE9F8F3)).border(1.dp, Color(0xFFC4ECDD), RoundedCornerShape(14.dp)).padding(15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(42.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF13A66B)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Security, null, tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text("Sua conta está protegida", color = Color(0xFF087A4D), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Senha e acesso verificados.", color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun SecurityInfoRow(title: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(10.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = DeepTeal, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(detail, color = Muted, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun WorkplacesScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) {
+    var attendanceType by remember { mutableStateOf<String?>(null) }
+    var expandedShift by remember { mutableStateOf("checkin") }
+    if (attendanceType != null) {
+        AttendanceScreen(type = attendanceType!!, onBack = { attendanceType = null })
+        return
+    }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            QuickActionHeader("Locais de trabalho", onBack)
+            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)) {
+                Spacer(Modifier.height(20.dp))
+                Text("Plantões atribuídos", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("Consulte seus locais de trabalho e registre sua presença.", color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+                Spacer(Modifier.height(18.dp))
+                AttendanceShiftCard(
+                    expanded = expandedShift == "checkin",
+                    onExpand = { expandedShift = if (expandedShift == "checkin") "" else "checkin" },
+                    title = "Check-in disponível",
+                    hospital = "Hospital São Lucas",
+                    specialty = "Clínica Médica",
+                    date = "Hoje, 12 de junho • 07:00 às 19:00",
+                    action = "Realizar check-in",
+                    actionColor = Color(0xFF10A76A),
+                    onClick = { attendanceType = "Check-in" },
+                )
+                Spacer(Modifier.height(14.dp))
+                AttendanceShiftCard(
+                    expanded = expandedShift == "checkout",
+                    onExpand = { expandedShift = if (expandedShift == "checkout") "" else "checkout" },
+                    title = "Check-out disponível",
+                    hospital = "Hospital São Lucas",
+                    specialty = "Clínica Médica",
+                    date = "Hoje, 12 de junho • 07:00 às 19:00",
+                    action = "Realizar check-out",
+                    actionColor = Color(0xFFE42C45),
+                    onClick = { attendanceType = "Check-out" },
+                )
+                Spacer(Modifier.height(22.dp))
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFFE1F3FA)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocationOn, null, tint = Cyan, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(9.dp))
+                    Text("O registro de presença fica disponível no horário do plantão.", color = Navy, fontSize = 11.sp, lineHeight = 14.sp)
+                }
+            }
+            HomeBottomNavigation("Plantões", onSelected = onTabSelected)
+        }
+    }
+}
+
+@Composable
+private fun AttendanceShiftCard(expanded: Boolean, onExpand: () -> Unit, title: String, hospital: String, specialty: String, date: String, action: String, actionColor: Color, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Color(0xFFDCE5E8), RoundedCornerShape(14.dp)),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onExpand).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (actionColor == Color(0xFF10A76A)) Color(0xFFE3F7EF) else Color(0xFFFFE9ED)), contentAlignment = Alignment.Center) {
+                Icon(if (actionColor == Color(0xFF10A76A)) Icons.Default.EventNote else Icons.Default.AccessTime, null, tint = actionColor, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(11.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(hospital, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("$specialty • ${if (expanded) "detalhes abertos" else "toque para ver"}", color = Muted, fontSize = 10.sp)
+            }
+            Text(if (expanded) "⌃" else "›", color = Navy, fontSize = 22.sp)
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(start = 15.dp, end = 15.dp, bottom = 15.dp)) {
+                HorizontalDivider(color = Color(0xFFE6ECEE))
+                Spacer(Modifier.height(12.dp))
+                Text(title.uppercase(), color = actionColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(date, color = Muted, fontSize = 11.sp)
+                Spacer(Modifier.height(13.dp))
+                Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(43.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = actionColor)) {
+                    Text(action, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttendanceScreen(type: String, onBack: () -> Unit) {
+    val isCheckIn = type == "Check-in"
+    val accent = if (isCheckIn) Color(0xFF10A76A) else Color(0xFFE42C45)
+    val title = if (isCheckIn) "Chegada do plantão" else "Saída do plantão"
+    val help = if (isCheckIn) "Marque seu check-in para iniciar o plantão." else "Marque seu check-out para finalizar o plantão."
+    val button = if (isCheckIn) "Confirmar check-in" else "Confirmar check-out"
+    val hospital = if (isCheckIn) "Hospital São Lucas" else "Hospital Santa Clara"
+    var confirmed by remember { mutableStateOf(false) }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            AttendanceTopBar()
+            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)) {
+                Spacer(Modifier.height(17.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("‹", color = Navy, fontSize = 30.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 9.dp))
+                    Column {
+                        Text(type, color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(if (isCheckIn) "Registre sua entrada no plantão" else "Registre sua saída do plantão", color = Color(0xFF6281AC), fontSize = 12.sp)
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(if (isCheckIn) Color(0xFFEAF9F3) else Color(0xFFFFEFF1)).border(1.dp, if (isCheckIn) Color(0xFFC5ECD9) else Color(0xFFFFC8D0), RoundedCornerShape(9.dp)).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(accent), contentAlignment = Alignment.Center) { Icon(Icons.Default.EventNote, null, tint = Color.White, modifier = Modifier.size(27.dp)) }
+                    Spacer(Modifier.width(13.dp))
+                    Column {
+                        Text(title, color = accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(help, color = Muted, fontSize = 11.sp, lineHeight = 14.sp)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE0E8EB), RoundedCornerShape(10.dp)).background(Color.White).padding(15.dp)) {
+                    Text("Informações do plantão", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(15.dp))
+                    AttendanceDetail("Hospital", hospital, Icons.Default.LocationOn)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 11.dp), color = Color(0xFFE8EDF0))
+                    AttendanceDetail("Data", "12/06/2025 (Hoje)", Icons.Default.CalendarMonth)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 11.dp), color = Color(0xFFE8EDF0))
+                    AttendanceDetail("Horário do plantão", "07:00 às 19:00", Icons.Default.AccessTime)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 11.dp), color = Color(0xFFE8EDF0))
+                    AttendanceDetail("Especialidade", "Clínica Médica", Icons.Default.Security)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 11.dp), color = Color(0xFFE8EDF0))
+                    AttendanceDetail("Coordenadora", "Dra. Mariana Silva", Icons.Default.PersonOutline)
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFFE5F2FF)).padding(12.dp)) {
+                    Text("i", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.size(20.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF1475D1)).padding(top = 2.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(if (isCheckIn) "Ao confirmar o check-in, sua entrada será registrada e sua presença ficará disponível para a equipe do hospital." else "O check-out registra o encerramento do seu plantão e atualiza sua presença no sistema.", color = Color(0xFF1B66B4), fontSize = 10.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(15.dp))
+                Button(onClick = { confirmed = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text(if (confirmed) "Registro confirmado" else button, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                Spacer(Modifier.height(16.dp))
+            }
+            AttendanceBottomNavigation()
+        }
+    }
+}
+
+@Composable
+private fun AttendanceTopBar() {
+    Row(modifier = Modifier.fillMaxWidth().height(82.dp).background(Brush.horizontalGradient(listOf(Color(0xFF0B2E63), Color(0xFF134987)))).padding(horizontal = 19.dp), verticalAlignment = Alignment.CenterVertically) {
+        Image(painter = painterResource(id = R.drawable.alocca_hotbar_mark), contentDescription = null, modifier = Modifier.size(36.dp))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text("Alocca", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Plantões", color = Color(0xFFAFC9EC), fontSize = 13.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Color.White, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
+private fun AttendanceBottomNavigation() {
+    Row(modifier = Modifier.fillMaxWidth().height(63.dp).border(1.dp, Color(0xFFE2E5E6)).background(Color.White), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        listOf("Início" to Icons.Default.Home, "Meus plantões" to Icons.Default.CalendarMonth, "Check-in/out" to Icons.Default.AccessTime, "Perfil" to Icons.Default.PersonOutline).forEach { (label, icon) ->
+            val selected = label == "Check-in/out"
+            Column(modifier = Modifier.width(76.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, null, tint = if (selected) Color(0xFF1475D1) else Color(0xFF6B7E99), modifier = Modifier.size(if (selected) 23.dp else 20.dp))
+                Spacer(Modifier.height(3.dp))
+                Text(label, color = if (selected) Color(0xFF1475D1) else Color(0xFF6B7E99), fontSize = 8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttendanceDetail(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Color(0xFF6281AC), modifier = Modifier.size(23.dp))
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(label, color = Color(0xFF6E84A6), fontSize = 10.sp)
+            Text(value, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun ProfileScreen(perfil: PerfilUsuario, onBack: () -> Unit, onTabSelected: (String) -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+    val displayName = perfil.nome.ifBlank { "Dr. Bean" }
+    var editingSection by remember { mutableStateOf<String?>(null) }
+    var phone by remember { mutableStateOf("(11)98765-4321") }
+    var email by remember { mutableStateOf(perfil.email) }
+    var birthDate by remember { mutableStateOf("15/04/1990") }
+    var city by remember { mutableStateOf("São Paulo-SP") }
+    var specialty by remember { mutableStateOf("Clínico geral") }
+    var education by remember { mutableStateOf("Medicina-USP") }
+    var institution by remember { mutableStateOf("Hospital das clínicas") }
+    var experience by remember { mutableStateOf("6 anos") }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(modifier = Modifier.fillMaxWidth().height(55.dp).border(1.dp, Color(0xFFE0E5E5)).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("‹", color = Navy, fontSize = 29.sp, modifier = Modifier.clickable(onClick = onBack).padding(end = 8.dp))
+                    Image(painter = painterResource(id = R.drawable.alocca_logo), contentDescription = "Alocca Plantões", modifier = Modifier.width(104.dp).height(42.dp))
+                    Spacer(Modifier.weight(1f))
+                    Box(modifier = Modifier.size(38.dp).clickable { notificationsOpen = !notificationsOpen }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(23.dp))
+                        Box(modifier = Modifier.align(Alignment.TopEnd).offset(y = 2.dp).size(17.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Cyan), contentAlignment = Alignment.Center) { Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 7.dp)) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("Meu Perfil", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("Gerencie suas informações pessoais\ne profissionais.", color = Navy, fontSize = 11.sp, lineHeight = 14.sp)
+                    Spacer(Modifier.height(12.dp))
+                    ProfileCompletionCard()
+                    Spacer(Modifier.height(12.dp))
+                    ProfileIdentityCard(displayName, email, perfil.crm.orEmpty(), perfil.ufCrm.orEmpty())
+                    Spacer(Modifier.height(18.dp))
+                    ProfileSection("Dados pessoais", listOf("Telefone" to phone, "E-mail" to email, "Data de nascimento" to birthDate, "Cidade" to city), onEdit = { editingSection = if (editingSection == "personal") null else "personal" })
+                    AnimatedVisibility(editingSection == "personal") {
+                        ProfileEditorCard(
+                            title = "Editar dados pessoais",
+                            fields = listOf("Telefone" to phone, "E-mail" to email, "Data de nascimento" to birthDate, "Cidade" to city),
+                            onCancel = { editingSection = null },
+                            onSave = { values ->
+                                phone = values[0]; email = values[1]; birthDate = values[2]; city = values[3]
+                                editingSection = null
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ProfileSection("Dados profissionais", listOf("Especialidades" to specialty, "Formação" to education, "Instituição de vínculo" to institution, "Tempo de atuação" to experience), onEdit = { editingSection = if (editingSection == "professional") null else "professional" })
+                    AnimatedVisibility(editingSection == "professional") {
+                        ProfileEditorCard(
+                            title = "Editar dados profissionais",
+                            fields = listOf("Especialidades" to specialty, "Formação" to education, "Instituição de vínculo" to institution, "Tempo de atuação" to experience),
+                            onCancel = { editingSection = null },
+                            onSave = { values ->
+                                specialty = values[0]; education = values[1]; institution = values[2]; experience = values[3]
+                                editingSection = null
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(22.dp))
+                }
+                HomeBottomNavigation("Início", onSelected = onTabSelected)
+            }
+            AnimatedVisibility(visible = notificationsOpen, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 48.dp, end = 15.dp), enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(), exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut()) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+        }
+    }
+}
+
+@Composable
+private fun ProfileCompletionCard() {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(Color(0xFFEAF7FA)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("65%", color = DeepTeal, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(15.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Complete seu perfil", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Preencha seus dados profissionais para\naumentar suas chances de ser selecionado", color = Muted, fontSize = 9.sp, lineHeight = 11.sp)
+            Spacer(Modifier.height(9.dp))
+            Text("Completar perfil     ›", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(DeepTeal).clickable { }.padding(vertical = 6.dp))
+        }
+    }
+}
+
+@Composable
+private fun ProfileIdentityCard(name: String, email: String, crm: String, uf: String) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(Color(0xFF083C7A)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(69.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD9F3FC)), contentAlignment = Alignment.Center) { Text(name.take(2).uppercase(), color = DeepTeal, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+        Spacer(Modifier.width(15.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(7.dp))
+            Text("✉ $email", color = Color.White, fontSize = 10.sp)
+            Text("▣ CRM $crm-$uf", color = Color.White, fontSize = 10.sp)
+            Text("♙ CPF 123.456.789-00", color = Color.White, fontSize = 10.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun ProfileSection(title: String, entries: List<Pair<String, String>>, onEdit: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = DeepTeal, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.weight(1f))
+        Text("Editar ✎", color = DeepTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onEdit))
+    }
+    Spacer(Modifier.height(4.dp))
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(8.dp))) {
+        entries.forEachIndexed { index, (label, value) ->
+            Row(modifier = Modifier.fillMaxWidth().height(28.dp).clickable { }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = Color(0xFF2D3137), fontSize = 9.sp, modifier = Modifier.weight(1f))
+                Text(value, color = Color(0xFF2D3137), fontSize = 9.sp)
+                Icon(Icons.Default.ChevronRight, null, tint = Navy, modifier = Modifier.size(15.dp))
+            }
+            if (index != entries.lastIndex) HorizontalDivider(color = Color(0xFFE7EAEB))
+        }
+    }
+}
+
+@Composable
+private fun ProfileEditorCard(title: String, fields: List<Pair<String, String>>, onCancel: () -> Unit, onSave: (List<String>) -> Unit) {
+    val values = remember(fields) { mutableStateListOf(*fields.map { it.second }.toTypedArray()) }
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFEAF7FA)).border(1.dp, Color(0xFFCBE7EB), RoundedCornerShape(10.dp)).padding(12.dp),
+    ) {
+        Text(title, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        fields.forEachIndexed { index, (label, _) ->
+            OutlinedTextField(
+                value = values[index],
+                onValueChange = { values[index] = it },
+                label = { Text(label, fontSize = 11.sp) },
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Navy),
+                modifier = Modifier.fillMaxWidth().height(53.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = DeepTeal, unfocusedBorderColor = Color(0xFF93C8D1), focusedLabelColor = DeepTeal),
+            )
+            Spacer(Modifier.height(7.dp))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Text("Cancelar", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onCancel).padding(10.dp))
+            Spacer(Modifier.width(7.dp))
+            Text("Salvar alterações", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(DeepTeal).clickable { onSave(values.toList()) }.padding(horizontal = 13.dp, vertical = 10.dp))
         }
     }
 }
