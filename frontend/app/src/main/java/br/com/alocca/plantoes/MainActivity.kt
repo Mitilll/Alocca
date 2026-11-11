@@ -341,7 +341,7 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     .padding(horizontal = 20.dp),
             ) {
                 Spacer(Modifier.height(19.dp))
-                Text("Olá, Dr. $primeiroNome", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Olá, $primeiroNome", color = Navy, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(3.dp))
                 Text(
                     "Encontre plantões, acompanhe suas\natividades e gerencie seus plantões.",
