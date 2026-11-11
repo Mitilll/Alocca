@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandIn
@@ -317,6 +318,8 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    BackHandler(enabled = activeTab != "Início") { activeTab = "Início" }
+
     if (activeTab == "Configurações") {
         SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it }, onLogout = onLogout)
         return
@@ -392,11 +395,6 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
 @Composable
 private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
-    var pushNotifications by remember { mutableStateOf(true) }
-    var calendarNotifications by remember { mutableStateOf(false) }
-    var emailNotifications by remember { mutableStateOf(true) }
-    var profileType by remember { mutableStateOf("Médico") }
-    var profileTypeMenuOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Dr." }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
@@ -445,26 +443,8 @@ private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Uni
                     SettingsSectionTitle("Preferências do aplicativo")
                     Spacer(Modifier.height(7.dp))
                     SettingsCard {
-                        SettingsSwitchRow(Icons.Default.NotificationsNone, "Notificações", "Gerencie caso queira receber alertas.", Color(0xFFE0F4FF), Color(0xFF1683BF), pushNotifications) { pushNotifications = it }
-                        HorizontalDivider(color = Color(0xFFE7EAEB))
-                        SettingsSwitchRow(Icons.Default.CalendarMonth, "Calendário", "Gerencie as notificações do seu calendário.", Color(0xFFE0F8EF), Color(0xFF0C9B72), calendarNotifications) { calendarNotifications = it }
-                        HorizontalDivider(color = Color(0xFFE7EAEB))
-                        SettingsSwitchRow(Icons.Default.Email, "Notificações por email", "Habilite esta opção para receber alertas por e-mail.", Color(0xFFF1EAFE), Color(0xFF7351A5), emailNotifications) { emailNotifications = it }
-                        HorizontalDivider(color = Color(0xFFE7EAEB))
-                        SettingsProfileTypeRow(
-                            profileType = profileType,
-                            expanded = profileTypeMenuOpen,
-                            onToggleMenu = { profileTypeMenuOpen = !profileTypeMenuOpen },
-                            onSelect = {
-                                profileType = it
-                                profileTypeMenuOpen = false
-                            },
-                        )
+                        Text("Preferências de notificações indisponíveis no momento.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
                     }
-                    Spacer(Modifier.height(15.dp))
-                    SettingsSectionTitle("Informações do sistema")
-                    Spacer(Modifier.height(7.dp))
-                    SettingsCard { SettingsNavigationRow(Icons.Default.Security, "Tipo de perfil", "Troque de perfil de acordo com seus serviços.", Color(0xFFF1EAFE), Color(0xFF7351A5)) }
                     Spacer(Modifier.height(19.dp))
                     SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false, onClick = onLogout) }
                     Spacer(Modifier.height(20.dp))
@@ -521,55 +501,6 @@ private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.Imag
             if (showDescription) Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
         }
         Icon(Icons.Default.ChevronRight, null, tint = Navy, modifier = Modifier.size(18.dp))
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-        SettingsIcon(icon, background, tint)
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.height(25.dp), colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF86F28B), uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFFE5E5EA)))
-    }
-}
-
-@Composable
-private fun SettingsProfileTypeRow(
-    profileType: String,
-    expanded: Boolean,
-    onToggleMenu: () -> Unit,
-    onSelect: (String) -> Unit,
-) {
-    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleMenu).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-        SettingsIcon(Icons.Default.EventNote, Color(0xFFFFF0D9), Color(0xFFF29A14))
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text("Tipo de perfil", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text("Troque de perfil de acordo com seus serviços.", color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
-        }
-        Box {
-            Text(
-                "$profileType⌄",
-                color = Navy,
-                fontSize = 9.sp,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(5.dp))
-                    .border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(5.dp))
-                    .clickable(onClick = onToggleMenu)
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = onToggleMenu,
-            ) {
-                DropdownMenuItem(text = { Text("Médico") }, onClick = { onSelect("Médico") })
-                DropdownMenuItem(text = { Text("Instituição") }, onClick = { onSelect("Instituição") })
-            }
-        }
     }
 }
 
