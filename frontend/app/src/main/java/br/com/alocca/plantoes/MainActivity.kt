@@ -437,7 +437,7 @@ private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Uni
                     SettingsCard {
                         SettingsNavigationRow(Icons.Default.PersonOutline, "Dados pessoais", "Atualize suas informações.", Color(0xFFE0F4FF), Color(0xFF1683BF))
                         HorizontalDivider(color = Color(0xFFE7EAEB))
-                        SettingsNavigationRow(Icons.Default.Lock, "Dados pessoais", "Senha, autenticação e privacidade.", Color(0xFFE0F8EF), Color(0xFF0C9B72))
+                        SettingsNavigationRow(Icons.Default.Lock, "Segurança e privacidade", "Senha, autenticação e privacidade.", Color(0xFFE0F8EF), Color(0xFF0C9B72))
                     }
                     Spacer(Modifier.height(15.dp))
                     SettingsSectionTitle("Preferências do aplicativo")
