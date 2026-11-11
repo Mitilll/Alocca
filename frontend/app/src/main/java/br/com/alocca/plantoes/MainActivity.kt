@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Screen { Login, Register }
-private enum class QuickActionScreen { Security, Calendar, Profile, Workplaces, Settings }
+private enum class QuickActionScreen { Security, Calendar, Profile, Workplaces }
 private enum class InstitutionScreen { Home, Shifts, Doctors, Payments, TimeRecord, Settings, PublishShift }
 
 @Composable
@@ -328,9 +328,24 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notice by remember { mutableStateOf("") }
     var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
     var notificationsOpen by remember { mutableStateOf(false) }
+    var quickActionScreen by remember { mutableStateOf<QuickActionScreen?>(null) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
-    BackHandler(enabled = activeTab != "Início") { activeTab = "Início" }
+    BackHandler(enabled = quickActionScreen != null || activeTab != "Início") {
+        if (quickActionScreen != null) quickActionScreen = null else activeTab = "Início"
+    }
+
+    val onQuickTabSelected: (String) -> Unit = { selected ->
+        quickActionScreen = null
+        activeTab = selected
+    }
+    when (quickActionScreen) {
+        QuickActionScreen.Security -> { SecurityScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Calendar -> { CalendarScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Profile -> { ProfileScreen(perfil = perfil, onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        QuickActionScreen.Workplaces -> { WorkplacesScreen(onBack = { quickActionScreen = null }, onTabSelected = onQuickTabSelected); return }
+        null -> Unit
+    }
 
     if (activeTab == "Financeiro") {
         FinanceScreen(onTabSelected = { activeTab = it }, onLogout = onLogout)
@@ -397,7 +412,15 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
                     Spacer(Modifier.height(18.dp))
                     Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
-                    QuickActions { notice = "$it estará disponível em breve." }
+                    QuickActions { action ->
+                        quickActionScreen = when (action) {
+                            "Segurança" -> QuickActionScreen.Security
+                            "Calendário" -> QuickActionScreen.Calendar
+                            "Locais de trabalho" -> QuickActionScreen.Workplaces
+                            "Seu perfil" -> QuickActionScreen.Profile
+                            else -> null
+                        }
+                    }
                     if (notice.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
                         Text(
