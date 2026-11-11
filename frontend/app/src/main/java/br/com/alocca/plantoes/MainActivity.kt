@@ -210,7 +210,7 @@ private fun AuthApp() {
 
             val currentPerfil = perfil
             if (currentPerfil != null) {
-                HomeScreen(currentPerfil)
+                HomeScreen(currentPerfil, onLogout = ::logout)
             } else {
                 Column(
                     modifier = Modifier
@@ -310,7 +310,7 @@ private fun AuthApp() {
 }
 
 @Composable
-private fun HomeScreen(perfil: PerfilUsuario) {
+private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var activeTab by remember { mutableStateOf("Início") }
     var notice by remember { mutableStateOf("") }
     var selectedShift by remember { mutableStateOf<ShiftDetails?>(null) }
@@ -318,7 +318,7 @@ private fun HomeScreen(perfil: PerfilUsuario) {
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
     if (activeTab == "Configurações") {
-        SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it })
+        SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it }, onLogout = onLogout)
         return
     }
 
@@ -347,15 +347,7 @@ private fun HomeScreen(perfil: PerfilUsuario) {
                     lineHeight = 16.sp,
                 )
                 Spacer(Modifier.height(16.dp))
-                QuickSummary()
-                Spacer(Modifier.height(18.dp))
-                SectionTitle("Próximos plantões", "Ver todos") { notice = "Em breve você poderá ver todos os plantões." }
-                Spacer(Modifier.height(9.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "CONFIRMADO", "Hospital Santa Clara", "Clínica Médica", "Gama - DF", "R$ 800,00", true) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("20", "JUN", "Sex. 19h", "PENDENTE", "Hospital Santa Lúcia", "Clínica Médica", "Taguatinga - DF", "R$ 950,00", false) { shift -> selectedShift = shift }
-                Spacer(Modifier.height(8.dp))
-                ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { shift -> selectedShift = shift }
+                Text("Dados de plantões ainda não disponíveis.", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(18.dp))
                 Text("Ações rápidas", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
@@ -398,7 +390,7 @@ private fun HomeScreen(perfil: PerfilUsuario) {
 }
 
 @Composable
-private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit) {
+private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
     var pushNotifications by remember { mutableStateOf(true) }
     var calendarNotifications by remember { mutableStateOf(false) }
@@ -423,11 +415,6 @@ private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Uni
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
-                        Box(
-                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 2.dp).size(17.dp)
-                                .clip(androidx.compose.foundation.shape.CircleShape).background(Cyan),
-                            contentAlignment = Alignment.Center,
-                        ) { Text("3", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
                     }
                 }
 
@@ -435,6 +422,17 @@ private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Uni
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 ) {
                     SettingsProfileCard(primeiroNome, perfil.crm, perfil.ufCrm)
+                    Spacer(Modifier.height(10.dp))
+                    SettingsCard {
+                        Column(Modifier.padding(12.dp)) {
+                            InfoRow("Nome", perfil.nome)
+                            InfoRow("E-mail", perfil.email)
+                            InfoRow("Perfil", perfil.tipoDescricao)
+                            InfoRow("Conta", perfil.statusDescricao)
+                            if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                            if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) InfoRow("Motivo", perfil.motivoRejeicao)
+                        }
+                    }
                     Spacer(Modifier.height(17.dp))
                     SettingsSectionTitle("Conta e segurança")
                     Spacer(Modifier.height(7.dp))
@@ -468,7 +466,7 @@ private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Uni
                     Spacer(Modifier.height(7.dp))
                     SettingsCard { SettingsNavigationRow(Icons.Default.Security, "Tipo de perfil", "Troque de perfil de acordo com seus serviços.", Color(0xFFF1EAFE), Color(0xFF7351A5)) }
                     Spacer(Modifier.height(19.dp))
-                    SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false) }
+                    SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false, onClick = onLogout) }
                     Spacer(Modifier.height(20.dp))
                 }
                 HomeBottomNavigation("Configurações", onSelected = onTabSelected)
@@ -496,7 +494,7 @@ private fun SettingsProfileCard(name: String, crm: String?, uf: String?) {
             Column {
                 Text("Dr. $name", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("CRM ${crm.orEmpty()}-${uf.orEmpty()}", color = Muted, fontSize = 11.sp)
-                Text("Clínico Geral", color = Muted, fontSize = 11.sp)
+
             }
         }
     }
@@ -514,8 +512,8 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, showDescription: Boolean = true) {
-    Row(modifier = Modifier.fillMaxWidth().clickable { }.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, showDescription: Boolean = true, onClick: () -> Unit = {}) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
         SettingsIcon(icon, background, tint)
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -599,6 +597,7 @@ private fun HomeScreenPreview() {
                 statusValidacao = "APROVADO",
                 motivoRejeicao = null,
             ),
+            onLogout = {},
         )
     }
 }
@@ -633,24 +632,6 @@ private fun HomeHeader(onNotification: () -> Unit) {
                 tint = Navy,
                 modifier = Modifier.size(27.dp),
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 0.dp, y = 2.dp)
-                    .size(17.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Cyan),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "3",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    lineHeight = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-            }
         }
     }
 }
@@ -668,14 +649,9 @@ private fun NotificationsPanel(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Notificações", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Text("3 novas", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(15.dp))
-            NotificationItem(Icons.Default.EventNote, "Plantão confirmado", "Hospital Santa Clara • Sex. 19h")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccessTime, "Confirmação pendente", "Responda ao plantão do Hospital Santa Lúcia")
-            Spacer(Modifier.height(13.dp))
-            NotificationItem(Icons.Default.AccountBalanceWallet, "Pagamento recebido", "R$ 2.459,00 disponível em seu saldo")
+            Text("Notificações ainda não disponíveis.", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(16.dp))
             Text(
                 "Fechar",
