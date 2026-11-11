@@ -63,10 +63,12 @@ export class AgendaService {
 
     // Limites do mês no mesmo fuso nomeado usado para agrupar por dia
     // (respeita o horário de verão histórico de America/Sao_Paulo).
+    // Converte para timestamp UTC, como data_inicio é armazenado,
+    // sem depender do fuso da sessão do banco.
     const proximoAno = periodo.mes === 12 ? periodo.ano + 1 : periodo.ano
     const proximoMes = periodo.mes === 12 ? 1 : periodo.mes + 1
-    const inicio = sql`make_timestamptz(${periodo.ano}::int, ${periodo.mes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO})`
-    const fim = sql`make_timestamptz(${proximoAno}::int, ${proximoMes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO})`
+    const inicio = sql`make_timestamptz(${periodo.ano}::int, ${periodo.mes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO}) AT TIME ZONE 'UTC'`
+    const fim = sql`make_timestamptz(${proximoAno}::int, ${proximoMes}::int, 1, 0, 0, 0, ${FUSO_APRESENTACAO}) AT TIME ZONE 'UTC'`
 
     const visao = and(
       gte(plantoesTable.data_inicio, inicio),
