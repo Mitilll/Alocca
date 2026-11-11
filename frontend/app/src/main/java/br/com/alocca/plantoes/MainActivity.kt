@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedVisibility
@@ -322,6 +323,13 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
     var notificationsOpen by remember { mutableStateOf(false) }
     val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "Doutor(a)" }
 
+    BackHandler(enabled = activeTab != "Início") { activeTab = "Início" }
+
+    if (activeTab == "Configurações") {
+        SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it }, onLogout = onLogout)
+        return
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -415,6 +423,128 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun SettingsScreen(perfil: PerfilUsuario, onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+    val primeiroNome = perfil.nome.trim().substringBefore(" ").ifBlank { "" }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Configurações", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier.size(40.dp).clickable { notificationsOpen = !notificationsOpen },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.NotificationsNone, "Notificações", tint = Navy, modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                ) {
+                    SettingsProfileCard(primeiroNome, perfil.crm, perfil.ufCrm)
+                    Spacer(Modifier.height(10.dp))
+                    SettingsCard {
+                        Column(Modifier.padding(12.dp)) {
+                            InfoRow("Nome", perfil.nome)
+                            InfoRow("E-mail", perfil.email)
+                            InfoRow("Perfil", perfil.tipoDescricao)
+                            InfoRow("Conta", perfil.statusDescricao)
+                            if (perfil.statusValidacao != null) InfoRow("Validação", perfil.validacaoDescricao)
+                            if (perfil.statusValidacao == "REJEITADO" && !perfil.motivoRejeicao.isNullOrBlank()) InfoRow("Motivo", perfil.motivoRejeicao)
+                        }
+                    }
+                    Spacer(Modifier.height(17.dp))
+                    SettingsSectionTitle("Conta e segurança")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        SettingsNavigationRow(Icons.Default.PersonOutline, "Dados pessoais", "Atualize suas informações.", Color(0xFFE0F4FF), Color(0xFF1683BF))
+                        HorizontalDivider(color = Color(0xFFE7EAEB))
+                        SettingsNavigationRow(Icons.Default.Lock, "Segurança e privacidade", "Senha, autenticação e privacidade.", Color(0xFFE0F8EF), Color(0xFF0C9B72))
+                    }
+                    Spacer(Modifier.height(15.dp))
+                    SettingsSectionTitle("Preferências do aplicativo")
+                    Spacer(Modifier.height(7.dp))
+                    SettingsCard {
+                        Text("Preferências de notificações indisponíveis no momento.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
+                    }
+                    Spacer(Modifier.height(19.dp))
+                    SettingsCard { SettingsNavigationRow(Icons.Default.Logout, "Sair da conta", "", Color(0xFFFFE6E8), Color(0xFFFF4A53), showDescription = false, onClick = onLogout) }
+                    Spacer(Modifier.height(20.dp))
+                }
+                HomeBottomNavigation("Configurações", onSelected = onTabSelected)
+            }
+
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 46.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) { NotificationsPanel(onClose = { notificationsOpen = false }) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsProfileCard(name: String, crm: String?, uf: String?) {
+    SettingsCard {
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD9F3FC)),
+                contentAlignment = Alignment.Center,
+            ) { Text(name.take(2).uppercase(), color = DeepTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            Spacer(Modifier.width(13.dp))
+            Column {
+                Text(name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("CRM ${crm.orEmpty()}-${uf.orEmpty()}", color = Muted, fontSize = 11.sp)
+
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionTitle(text: String) = Text(text, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(10.dp)).background(Color.White),
+        content = content,
+    )
+}
+
+@Composable
+private fun SettingsNavigationRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, background: Color, tint: Color, showDescription: Boolean = true, onClick: () -> Unit = {}) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingsIcon(icon, background, tint)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = if (showDescription) Navy else tint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            if (showDescription) Text(description, color = Navy, fontSize = 8.sp, lineHeight = 10.sp)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = Navy, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, background: Color, tint: Color) {
+    Box(modifier = Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(background), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(19.dp))
+    }
+}
+
+
+
 
 /** Tela isolada para inspeção no Android Studio, sem login ou backend. */
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 393, heightDp = 852)
