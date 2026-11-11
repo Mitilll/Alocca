@@ -325,6 +325,11 @@ private fun HomeScreen(perfil: PerfilUsuario, onLogout: () -> Unit) {
 
     BackHandler(enabled = activeTab != "Início") { activeTab = "Início" }
 
+    if (activeTab == "Financeiro") {
+        FinanceScreen(onTabSelected = { activeTab = it }, onLogout = onLogout)
+        return
+    }
+
     if (activeTab == "Configurações") {
         SettingsScreen(perfil = perfil, onTabSelected = { activeTab = it }, onLogout = onLogout)
         return
@@ -544,6 +549,36 @@ private fun SettingsIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 
+
+
+@Composable
+private fun FinanceScreen(onTabSelected: (String) -> Unit, onLogout: () -> Unit) {
+    var notificationsOpen by remember { mutableStateOf(false) }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                HomeHeader(
+                    onNotification = { notificationsOpen = !notificationsOpen },
+                    onLogout = onLogout,
+                )
+                Text("Financeiro", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 20.dp)) {
+                    Text("Dados financeiros indisponíveis no momento.", color = Muted, fontSize = 13.sp)
+                }
+                HomeBottomNavigation("Financeiro", onSelected = onTabSelected)
+            }
+            AnimatedVisibility(
+                visible = notificationsOpen,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, end = 16.dp),
+                enter = expandIn(expandFrom = Alignment.TopEnd) + fadeIn(),
+                exit = shrinkOut(shrinkTowards = Alignment.TopEnd) + fadeOut(),
+            ) {
+                NotificationsPanel(onClose = { notificationsOpen = false })
+            }
+        }
+    }
+}
 
 
 /** Tela isolada para inspeção no Android Studio, sem login ou backend. */
