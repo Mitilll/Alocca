@@ -69,6 +69,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.drawscope.Fill
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.Locale
 
 private val Navy = Color(0xFF063957)
 private val DeepTeal = Color(0xFF07566A)
@@ -487,7 +489,9 @@ private fun CalendarScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) 
                     Spacer(Modifier.height(3.dp))
                     Text("Personalize o seu calendário conforme seus compromissos.", color = Muted, fontSize = 12.sp)
                     Spacer(Modifier.height(12.dp))
-                    CalendarMonthCard()
+                    var monthOffset by remember { mutableStateOf(0) }
+                    CalendarMonthCard(monthOffset, onMonthChange = { monthOffset += it })
+                    if (monthOffset == 0) {
                     Spacer(Modifier.height(12.dp))
                     Text("Sexta-feira, 20 de junho", color = Muted, fontSize = 12.sp)
                     Spacer(Modifier.height(7.dp))
@@ -498,6 +502,7 @@ private fun CalendarScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) 
                     ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
                     Spacer(Modifier.height(7.dp))
                     ShiftCard("24", "JUN", "Ter. 19h", "CONFIRMADO", "Hospital Brasília", "Pediatria", "Brasília - DF", "R$ 700,00", true) { selectedShift = it }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Color(0xFFD9F3FC)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -522,24 +527,28 @@ private fun CalendarScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) 
 }
 
 @Composable
-private fun CalendarMonthCard() {
+private fun CalendarMonthCard(monthOffset: Int, onMonthChange: (Int) -> Unit) {
+    val month = Calendar.getInstance().apply { set(2025, Calendar.JUNE, 1); add(Calendar.MONTH, monthOffset) }
+    val firstDay = month.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY
+    val daysInMonth = month.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val cells = List(((firstDay + daysInMonth + 6) / 7) * 7) { index ->
+        (index - firstDay + 1).takeIf { it in 1..daysInMonth }?.toString() ?: ""
+    }
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).border(1.dp, Color(0xFFE0E5E5), RoundedCornerShape(11.dp)).padding(15.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("‹", color = Muted, fontSize = 28.sp)
+            Text("‹", color = Muted, fontSize = 28.sp, modifier = Modifier.clickable { onMonthChange(-1) })
             Spacer(Modifier.weight(1f))
-            Text("Junho 2024", color = Color(0xFF2D3137), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(month.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale("pt", "BR"))!!.replaceFirstChar { it.titlecase(Locale("pt", "BR")) } + " ${month.get(Calendar.YEAR)}", color = Color(0xFF2D3137), fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
-            Text("›", color = Muted, fontSize = 28.sp)
+            Text("›", color = Muted, fontSize = 28.sp, modifier = Modifier.clickable { onMonthChange(1) })
         }
         Spacer(Modifier.height(13.dp))
         CalendarWeekRow(listOf("D", "S", "T", "Q", "Q", "S", "S"), isHeader = true)
-        CalendarWeekRow(listOf("", "", "", "", "", "1", "2"))
-        CalendarWeekRow(listOf("3", "4", "5", "6", "7", "8", "9"), dotAt = 0)
-        CalendarWeekRow(listOf("10", "11", "12", "13", "14", "15", "16"), dotAt = 6, dotColor = Color(0xFFF49A19))
-        CalendarWeekRow(listOf("17", "18", "19", "20", "21", "22", "23"), selectedAt = 3, dotAt = 3)
-        CalendarWeekRow(listOf("24", "25", "26", "27", "28", "29", "30"))
+        cells.chunked(7).forEach { week ->
+            CalendarWeekRow(week, selectedAt = if (monthOffset == 0) week.indexOf("20") else -1)
+        }
         Spacer(Modifier.height(13.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CalendarLegend(Color(0xFF006EC6), "Confirmado")
@@ -666,9 +675,11 @@ private fun SecurityInfoRow(title: String, detail: String, icon: androidx.compos
 @Composable
 private fun WorkplacesScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit) {
     var attendanceType by remember { mutableStateOf<String?>(null) }
+    var attendanceHospital by remember { mutableStateOf("") }
+    val hospital = "Hospital São Lucas"
     var expandedShift by remember { mutableStateOf("checkin") }
     if (attendanceType != null) {
-        AttendanceScreen(type = attendanceType!!, onBack = { attendanceType = null })
+        AttendanceScreen(type = attendanceType!!, hospital = attendanceHospital, onBack = { attendanceType = null })
         return
     }
 
@@ -685,24 +696,24 @@ private fun WorkplacesScreen(onBack: () -> Unit, onTabSelected: (String) -> Unit
                     expanded = expandedShift == "checkin",
                     onExpand = { expandedShift = if (expandedShift == "checkin") "" else "checkin" },
                     title = "Check-in disponível",
-                    hospital = "Hospital São Lucas",
+                    hospital = hospital,
                     specialty = "Clínica Médica",
                     date = "Hoje, 12 de junho • 07:00 às 19:00",
                     action = "Realizar check-in",
                     actionColor = Color(0xFF10A76A),
-                    onClick = { attendanceType = "Check-in" },
+                    onClick = { attendanceHospital = hospital; attendanceType = "Check-in" },
                 )
                 Spacer(Modifier.height(14.dp))
                 AttendanceShiftCard(
                     expanded = expandedShift == "checkout",
                     onExpand = { expandedShift = if (expandedShift == "checkout") "" else "checkout" },
                     title = "Check-out disponível",
-                    hospital = "Hospital São Lucas",
+                    hospital = hospital,
                     specialty = "Clínica Médica",
                     date = "Hoje, 12 de junho • 07:00 às 19:00",
                     action = "Realizar check-out",
                     actionColor = Color(0xFFE42C45),
-                    onClick = { attendanceType = "Check-out" },
+                    onClick = { attendanceHospital = hospital; attendanceType = "Check-out" },
                 )
                 Spacer(Modifier.height(22.dp))
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFFE1F3FA)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -749,13 +760,12 @@ private fun AttendanceShiftCard(expanded: Boolean, onExpand: () -> Unit, title: 
 }
 
 @Composable
-private fun AttendanceScreen(type: String, onBack: () -> Unit) {
+private fun AttendanceScreen(type: String, hospital: String, onBack: () -> Unit) {
     val isCheckIn = type == "Check-in"
     val accent = if (isCheckIn) Color(0xFF10A76A) else Color(0xFFE42C45)
     val title = if (isCheckIn) "Chegada do plantão" else "Saída do plantão"
     val help = if (isCheckIn) "Marque seu check-in para iniciar o plantão." else "Marque seu check-out para finalizar o plantão."
     val button = if (isCheckIn) "Confirmar check-in" else "Confirmar check-out"
-    val hospital = if (isCheckIn) "Hospital São Lucas" else "Hospital Santa Clara"
     var confirmed by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
